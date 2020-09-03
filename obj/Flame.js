@@ -27,7 +27,7 @@ export class Flame {
         // light setup
         this.light = new THREE.PointLight( 0xffffff );
         this.light.decay = 2;
-        this.light.distance = this.width * 4;
+        this.light.distance = this.width * 16;
         this.light.intensity = 0.0;
         this.light.position.set( 
             this.particleCenter.x,

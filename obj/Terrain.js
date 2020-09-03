@@ -5,16 +5,15 @@ import { materials } from './materials.js'
 // Note: scale is used as cube size
 export class Terrain {
 
-    constructor(image, scale = 1, seaLevel = 16, dirtBlocks = 3, mixedBlocks = 2, sandBlocks = 18 ) {
+    constructor(image, scale = 1, seaLevel = 16, dirtBlocks = 4, sandBlocks = 18 ) {
         this.image = image;
         this.scale = scale;
-        this.voxelSize = 10;
-        this.voxelHalf = 5;
+        this.voxelSize = 16;
+        this.voxelHalf = 8;
 
         this.seaLevel = seaLevel;
         this.dirtBlocks = dirtBlocks;
         this.sandBlocks = sandBlocks;
-        this.mixedBlocks = mixedBlocks;
 
         this.terrain = new THREE.Object3D();
     }
@@ -108,12 +107,7 @@ export class Terrain {
                 );
 
                 // get neighbor voxels's heighdata
-                let neighbors = {
-                    'far' : self.getY(xpos, zpos + 1, heightData, worldWidth),
-                    'near' : self.getY(xpos, zpos - 1, heightData, worldWidth),
-                    'left' : self.getY(xpos - 1, zpos, heightData, worldWidth),
-                    'right' : self.getY(xpos + 1, zpos, heightData, worldWidth)
-                }
+                let neighbors = self.getNeighbors( xpos, zpos, heightData, worldWidth, worldDepth );
 
                 // push top plane for surface voxel
                 if ( ypos > self.sandBlocks ) {
@@ -146,7 +140,7 @@ export class Terrain {
                         );
 
                         // push side planes based on height value
-                        if ( curHeight === ypos ) {
+                        if ( curHeight == ypos ) {
                             if ( curHeight > self.sandBlocks ) {
                                 terrainMaterials['grass'].push( cubeGeometry[direction].clone().applyMatrix4( matrix ) );
                             } else {
@@ -155,16 +149,8 @@ export class Terrain {
                         }
 
                         if ( curHeight < ypos ) {
-                            if ( curHeight > (ypos - ( self.dirtBlocks + self.mixedBlocks ) ) ) {
-                                if (curHeight > ( ypos - self.dirtBlocks )) {
-                                    terrainMaterials['dirt'].push( cubeGeometry[direction].clone().applyMatrix4( matrix ) );
-                                } else {
-                                    if (self.randBinary() === 1) {
-                                        terrainMaterials['dirt'].push( cubeGeometry[direction].clone().applyMatrix4( matrix ) );
-                                    } else {
-                                        terrainMaterials['stone'].push( cubeGeometry[direction].clone().applyMatrix4( matrix ) );
-                                    }
-                                }
+                            if ( curHeight >= (ypos - self.dirtBlocks ) ) {
+                                terrainMaterials['dirt'].push( cubeGeometry[direction].clone().applyMatrix4( matrix ) );
                             } else {
                                 terrainMaterials['stone'].push( cubeGeometry[direction].clone().applyMatrix4( matrix ) );
                             }
@@ -217,8 +203,10 @@ export class Terrain {
 
                     let geometryGroup = BufferGeometryUtils.mergeBufferGeometries( terrainMaterials[material] );
                     let mesh = new THREE.Mesh(geometryGroup, materials[material]);
-                    mesh.castShadow = true;
-                    mesh.receiveShadow = true;
+                    if( material != 'water') {
+                        mesh.castShadow = true;
+                        mesh.receiveShadow = true;
+                    }
 
                     self.terrain.add(mesh);
 
@@ -235,11 +223,43 @@ export class Terrain {
 
     }
 
-    randBinary() {
-        return Math.round(Math.random());
+    getNeighbors ( x, z, heightData, worldWidth, worldDepth ) {
+        let maxWidth = worldWidth - 1;
+        let maxDepth = worldDepth - 1;
+        let neighbors = {};
+
+        // left
+        if ( x === 0 ) {
+            neighbors['left'] = 0;
+        } else {
+            neighbors['left'] = ( heightData[ (x - 1) + z * worldWidth ] ) | 0;
+        }
+
+        // right
+        if ( x === maxWidth ) {
+            neighbors['right'] = 0;
+        } else {
+            neighbors['right'] = ( heightData[ (x + 1) + z * worldWidth ] ) | 0;
+        }
+
+        // near
+        if ( z === maxDepth ) {
+            neighbors['far'] = 0;
+        } else {
+            neighbors['far'] = ( heightData[ x + (z + 1) * worldWidth ] ) | 0;
+        }
+
+        // near
+        if ( z === maxWidth ) {
+            neighbors['near'] = 0;
+        } else {
+            neighbors['near'] = ~~( heightData[ x + (z - 1) * worldWidth ] );
+        }
+
+        return neighbors;
     }
 
-    getY ( x, z, heightData, worldWidth ) {
+    getY (x, z, heightData, worldWidth) {
         return ~~( heightData[ x + z * worldWidth ] );
     }
     

@@ -45,8 +45,8 @@
             import { Terrain } from './obj/Terrain.js';
             import { Flame } from './obj/Flame.js'
         
-            var ENTIRE_SCENE = 0;
             var BLOOM_SCENE = 1;
+            var pivot1, pivot2;
             var bloomComposer, bloomPass, renderPass, finalPass, finalComposer, darkMaterial, materials;
             var scene, camera, renderer, clearColor, bloomLayer, params, controls, stats, clock, timedelta;
             var dirLight, dirLightSize, hemiLight, flame, terrain;
@@ -62,7 +62,7 @@
                     encoding: THREE.GammaEncoding,        
                 });
 
-                clearColor = new THREE.Vector3(0.0,0.0,0.0);
+                clearColor = new THREE.Color(0.9,0.9,0.9);
                 renderer.setSize( window.innerWidth, window.innerHeight );
                 renderer.setClearColor( clearColor );
                 renderer.setPixelRatio( window.devicePixelRatio );
@@ -144,7 +144,7 @@
 
             function BuildScene() {
                 // - - scene lights
-                hemiLight = new THREE.HemisphereLight( 0xffffff, 0xffffff, 0.8 );
+                hemiLight = new THREE.HemisphereLight( 0xffffff, 0xffffff, 0.6 );
                 hemiLight.color.setHSL( 0.6, 1, 0.6 );
                 hemiLight.groundColor.setHSL( 0.095, 1, 0.75 );
                 hemiLight.position.set( 0, 500, 0 );
@@ -153,7 +153,7 @@
                 dirLightSize = 30;
                 dirLight = new THREE.DirectionalLight( 0xffffff, 1 );
                 dirLight.color.setHSL( 0.1, 1, 0.95 );
-                dirLight.position.set( -1, 1.75, 1 );
+                dirLight.position.set( 0, 1.0, 1.0 );
                 dirLight.position.multiplyScalar( 50 );
                 dirLight.castShadow = true;
                 dirLight.shadow.mapSize.width = 2048;
@@ -170,17 +170,18 @@
                 scene.add( helper );
 
                 // - - objects
-                flame = new Flame( 2.0, BLOOM_SCENE );
+                /*flame = new Flame( 2.0, BLOOM_SCENE );
                 scene.add(flame.getMesh());
                 flame.getMesh().position.set(
                     0,
-                    20,
+                    10,
                     0
                 );
-                flame.start();
+                flame.start();*/
 
                 // terrain
-                terrain = new Terrain( 'texture/terrain.png', 0.1 );
+                terrain = new Terrain( 'texture/terrain.png', 1.0, 7, 2, 7 );
+                //terrain = new Terrain( 'texture/terrain2.png', 0.1 );
                 scene.add(terrain.getMesh());
                 terrain.loadTerrain();
 
@@ -199,22 +200,24 @@
                 renderBloom();
                 finalComposer.render();
 
+
             }
 
             function Animate() {       
                 timedelta = clock.getDelta();
-                flame.animate(timedelta);
+                //flame.animate(timedelta);
+                dirLight.position.z -= 0.1;
             }
             
             function renderBloom() {
                 scene.traverse( darkenNonBloomed );
+                renderer.setClearColor( 0x000000 );
                 bloomComposer.render();
+                renderer.setClearColor( clearColor );
                 scene.traverse( restoreMaterial );
             }
 
             function darkenNonBloomed( obj ) {
-
-                console.log('pigna');
 
                 if ( obj.isMesh && bloomLayer.test( obj.layers ) === false ) {
 
