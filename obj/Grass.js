@@ -1,5 +1,6 @@
 import * as THREE from 'https://unpkg.com/three@0.120.0/build/three.module.js';
 import { BufferGeometryUtils } from 'https://unpkg.com/three@0.120.0/examples/jsm/utils/BufferGeometryUtils.js';
+import { randInt } from './Helpers.js'
 
 export class Grass {
 
@@ -38,7 +39,7 @@ export class Grass {
         // uses random values from 1 to grassMaxHeight
         // for individual grass strands heights
         for( let x = 0; x < self.grassSize; x++ ) {
-            let height = self.randInt(1,self.grassMaxHeight);
+            let height = randInt(1,self.grassMaxHeight);
             for ( let i = 0; i < height; i ++ ) {
                 matrix.makeTranslation(
                     - self.grassSize / 2 + x * 1 + 1 / 2,
@@ -63,7 +64,7 @@ export class Grass {
                 continue;
             }
 
-            let height = self.randInt(1,self.grassMaxHeight);
+            let height = randInt(1,self.grassMaxHeight);
             for ( let i = 0; i < height; i ++ ) {
                 matrix.makeTranslation(
                     0,
@@ -112,10 +113,6 @@ export class Grass {
             1 / self.voxelSize * self.scale
         );
         return mesh;
-    }
-
-    randInt( min, max ) {
-        return ~~((Math.random() * (max - min + 1)) + min);
     }
 
 }

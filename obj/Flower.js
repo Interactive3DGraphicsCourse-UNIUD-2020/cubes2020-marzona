@@ -1,5 +1,6 @@
 import * as THREE from 'https://unpkg.com/three@0.120.0/build/three.module.js';
 import { BufferGeometryUtils } from 'https://unpkg.com/three@0.120.0/examples/jsm/utils/BufferGeometryUtils.js';
+import { randArray } from './Helpers.js'
 
 export class Flower {
 
@@ -67,7 +68,7 @@ export class Flower {
         petals.push( petalGeometry.clone().applyMatrix4( matrix ) );
         let petalsGroup = BufferGeometryUtils.mergeBufferGeometries( petals );
         let petalsMesh = new THREE.Mesh( petalsGroup, new THREE.MeshPhongMaterial({
-            color: self.randArray(petalColors) // takes a random color for petals
+            color: randArray(petalColors) // takes a random color for petals
         }));
         mesh.add(petalsMesh);
 
@@ -82,10 +83,6 @@ export class Flower {
             obj.receiveShadow = true;
         });
         return mesh;
-    }
-
-    randArray (list) {
-        return list[Math.floor((Math.random()*list.length))];
     }
 
 }

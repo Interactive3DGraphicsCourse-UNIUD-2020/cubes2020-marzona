@@ -46,6 +46,7 @@
             import { Flame } from './obj/Flame.js';
             import config from './obj/vegetationData.js';
             import { Bonfire } from './obj/Bonfire.js';
+            import { colorGradient } from './obj/Helpers.js'
         
             var BLOOM_SCENE = 1;
             var bloomComposer, bloomPass, renderPass, finalPass, finalComposer, darkMaterial, materials;
@@ -55,17 +56,17 @@
             var ground, groundGeo, groundMat;
 
             // these are used to set-up orthographic camera
-            var viewSize = 40; // this is in world units
+            var viewSize = 40; // in world units
             var aspectRatio = window.innerWidth / window.innerHeight;
-            var cameraOffset = 10;
+            var cameraOffset = 10; // used to shift camera on the Y axis
 
             // hemilight and dirlight settings
             var lightFadeTime = 1.5; // expressed in second
             var hemiColorDay = new THREE.Color( 0.57, 0.88, 1.00); // day sky color
-            var hemiColorNight = new THREE.Color( 0.01, 0.00, 0.12 ); // night sky color
+            var hemiColorNight = new THREE.Color( 0.09, 0.09, 0.14 ); // night sky color
             var hemiColorGround = new THREE.Color( 1.00, 0.78, 0.50 ); // ground color
             var dirColorDay = new THREE.Color( 1.0, 0.96, 0.90 ); // directional day color
-            var dirColorNight = new THREE.Color( 1.0, 0.83, 0.66 ); // directional night color
+            var dirColorNight = new THREE.Color( 1.0, 0.83, 0.66 ); // directional night color, used 4100K color temperature
             var alpha = 1.0; // alpha value, used for linear interpolation
             var alphaUpdate = 1.0 / lightFadeTime;
             var hemiMaxIntensity = 0.6;
@@ -83,7 +84,7 @@
                 renderer = new THREE.WebGLRenderer({
                     antialias: true,
                     toneMapping: THREE.ReinhardToneMapping,
-                    encoding: THREE.GammaEncoding     
+                    encoding: THREE.GammaEncoding
                 });
 
                 renderer.setSize( window.innerWidth, window.innerHeight );
@@ -93,7 +94,7 @@
 
                 // enable shadowmaps
                 renderer.shadowMap.enabled = true;
-                renderer.shadowMap.type = THREE.PCFShadowMap;
+                renderer.shadowMap.type = THREE.PCFShadowMap; // this seems to give the best results
 
                 // - - camera
                 camera = new THREE.OrthographicCamera(
@@ -130,7 +131,6 @@
                 bloomComposer.addPass( bloomPass );
                 materials = {};
                 darkMaterial = new THREE.MeshBasicMaterial( { color: "black" } );
-                
 
                 finalPass = new ShaderPass(
                     new THREE.ShaderMaterial( {
@@ -151,7 +151,7 @@
                 
                 // - - stats
                 stats = new Stats();
-                stats.showPanel( 1 );
+                stats.showPanel( 0 ); // 0 fps, 1 ms, 2 Mb (only in chrome browser)
                 document.body.appendChild( stats.domElement );
 
                 // - - orbit controls
@@ -211,7 +211,6 @@
                 );
                 scene.add(flameMesh);
 
-
                 // - - terrain
                 terrain = new Terrain( 'texture/terrain.png', 1.0, 7, 2, 7, config );
                 scene.add(terrain.getMesh());
@@ -255,6 +254,7 @@
                 scene.traverse( restoreMaterial );
             }
 
+            // sets cdiff to black for all meshes not in bloom layer
             function darkenNonBloomed( obj ) {
 
                 if ( obj.isMesh && bloomLayer.test( obj.layers ) === false ) {
@@ -275,35 +275,26 @@
 
             function updateSceneLights( time ) {
                 if ( lightsNeedUpdate !== 0 ) {
-                    if ( lightsNeedUpdate === 1 ) {
-
+                    if ( lightsNeedUpdate === 1 ) { // day to night
                         alpha -= ( time * alphaUpdate);
                         if (alpha < 0) {
                             alpha = 0;
                             lightsNeedUpdate = 0;
                         }
-
-                        dirLight.intensity = dirMinIntensity + (alpha * (  dirMaxIntensity - dirMinIntensity ));
-                        hemiLight.intensity = hemiMinIntensity + (alpha * (  hemiMaxIntensity - hemiMinIntensity ));
-                        dirLight.color = colorGradient( dirColorDay, dirColorNight, alpha );
-                        clearColor = colorGradient( hemiColorDay, hemiColorNight, alpha);
-                        hemiLight.color = clearColor;
-                        renderer.setClearColor( clearColor );
                     }
-                    if ( lightsNeedUpdate === 2 ) {
+                    if ( lightsNeedUpdate === 2 ) { // night to day
                         alpha += ( time * alphaUpdate);
                         if (alpha > 1) {
                             alpha = 1;
                             lightsNeedUpdate = 0;
                         }
-
-                        dirLight.intensity = dirMinIntensity + (alpha * (  dirMaxIntensity - dirMinIntensity ));
-                        hemiLight.intensity = hemiMinIntensity + (alpha * (  hemiMaxIntensity - hemiMinIntensity ));
-                        dirLight.color = colorGradient( dirColorDay, dirColorNight, alpha );
-                        clearColor = colorGradient( hemiColorDay, hemiColorNight, alpha);
-                        hemiLight.color = clearColor;
-                        renderer.setClearColor( clearColor );
                     }
+                    dirLight.intensity = dirMinIntensity + (alpha * (  dirMaxIntensity - dirMinIntensity ));
+                    hemiLight.intensity = hemiMinIntensity + (alpha * (  hemiMaxIntensity - hemiMinIntensity ));
+                    dirLight.color = colorGradient( dirColorDay, dirColorNight, alpha );
+                    clearColor = colorGradient( hemiColorDay, hemiColorNight, alpha);
+                    hemiLight.color = clearColor;
+                    renderer.setClearColor( clearColor );
                 }
             }
 
@@ -311,10 +302,11 @@
             BuildScene();
             Update();
 
-            // ui handlers
+            // - - ui handlers
             var flameOn = false;
             var sunlightOn = true;
             
+            // has to be attached to window because its declared inside a module
             window.buttonPressHandler = function( parent, sceneElement ) {
                 if ( parent.getAttribute('class') == 'on' ) {
                     parent.innerHTML = "OFF";
@@ -339,25 +331,10 @@
                         sunlightOn = false;
                         lightsNeedUpdate = 1;
                     } else {
-                        document.getElementsByTagName("stats").display = "inline";
                         sunlightOn = true;
                         lightsNeedUpdate = 2;
                     }
                 }
-            }
-
-            // This uses RGB colors in [0.0 1.0] range
-            function colorGradient( color1, color2, alpha ) {
-                let r,g,b;
-                let colorPick;
-
-                r = (color1.r * (alpha) + color2.r * ( 1 - alpha ) );
-                g = (color1.g * (alpha) + color2.g * ( 1 - alpha ) );
-                b = (color1.b * (alpha) + color2.b * ( 1 - alpha ) );
-
-                colorPick = new THREE.Color( r,g,b );
-                return colorPick;
-
             }
             
         </script>

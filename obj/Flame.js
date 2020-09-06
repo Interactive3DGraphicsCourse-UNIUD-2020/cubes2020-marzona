@@ -1,4 +1,6 @@
 import * as THREE from 'https://unpkg.com/three@0.120.0/build/three.module.js';
+import { randPositionOverSphere, colorGradient } from './Helpers.js'
+
 export class Flame {
 
     constructor( scale = 1.0, particleLayer = 1 ) {
@@ -66,35 +68,6 @@ export class Flame {
         
     }
 
-    randPositionOverSphere( width, center = new THREE.Vector3( 0, 0, 0 ) ) {
-        let point;
-        let x,y,z;
-        while (true) {
-            x = THREE.Math.randFloat( -width / 2.0, width / 2.0 );
-            y = THREE.Math.randFloat( -width / 2.0, width / 2.0 );
-            z = THREE.Math.randFloat( -width / 2.0, width / 2.0 );
-
-            if ( Math.sqrt( (x*x) + (y*y) + (z*z) ) < 1) break;
-        }
-
-        point = new THREE.Vector3(x,y,z);
-        return point.add(center);
-    }
-
-    // uses RGB colors in [0.0 1.0] range
-    colorGradient( color1, color2, alpha ) {
-        let r,g,b;
-        let colorPick;
-
-        r = (color1.r * (alpha) + color2.r * ( 1 - alpha ) );
-        g = (color1.g * (alpha) + color2.g * ( 1 - alpha ) );
-        b = (color1.b * (alpha) + color2.b * ( 1 - alpha ) );
-
-        colorPick = new THREE.Color( r,g,b );
-        return colorPick;
-
-    }
-
     start() {
         let self = this;
         self.isLit = true;
@@ -144,7 +117,7 @@ export class Flame {
                 // Update position, if out of bounds reset
                 child.position.add( ( new THREE.Vector3(0.0,1.0,0.0) ).multiplyScalar( time * self.linearSpeed ) );
                 if ( child.position.y > self.height - (Math.sqrt(Math.pow(child.position.x,2)+Math.pow(child.position.z,2))*3) ) {
-                    let newPosition = self.randPositionOverSphere( self.width, self.particleCenter );
+                    let newPosition = randPositionOverSphere( self.width, self.particleCenter );
     
                     child.position.set(
                         newPosition.x,
@@ -160,7 +133,7 @@ export class Flame {
                     particleScale
                 );
                 child.material.opacity = 1.0;
-                child.material.color = self.colorGradient(self.color1,self.color2,particleScale);
+                child.material.color = colorGradient(self.color1,self.color2,particleScale);
 
             }
 
