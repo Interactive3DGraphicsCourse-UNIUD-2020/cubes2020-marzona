@@ -20,7 +20,7 @@ export class Grass {
         let grassLow = [];
         let colorHi, colorMid, colorLow;
 
-        // setup color palette
+        // setup color palette, the ocean one is used for seaweed
         if (self.palette == 'land') {
             colorHi = new THREE.Color('rgb(18,231,54)');
             colorMid = new THREE.Color('rgb(75,195,55)');
@@ -34,7 +34,9 @@ export class Grass {
 
         let geometry = new THREE.BoxBufferGeometry(1,1,1);
 
-        // setup the geometry
+        // setup the geometry, iterates along x and z axis
+        // uses random values from 1 to grassMaxHeight
+        // for individual grass strands heights
         for( let x = 0; x < self.grassSize; x++ ) {
             let height = self.randInt(1,self.grassMaxHeight);
             for ( let i = 0; i < height; i ++ ) {
@@ -80,7 +82,7 @@ export class Grass {
             }
         }
 
-
+        // assign colors and set up mesh groups
         let hiGroup = BufferGeometryUtils.mergeBufferGeometries( grassHi );
         let hiMesh = new THREE.Mesh( hiGroup, new THREE.MeshPhongMaterial({
             color: colorHi

@@ -4,9 +4,8 @@ import { materials } from './materials.js';
 import { Flower } from './Flower.js';
 import { Tree } from './Tree.js';
 import { Grass } from './Grass.js';
-import vegetationData from './vegetationData.js';
 
-// Note: scale is used as cube size
+// Note: scale is used as cube size in world units
 export class Terrain {
 
     constructor(image, scale = 1, seaLevel = 16, dirtBlocks = 4, sandBlocks = 18, vegetation = null ) {
@@ -111,10 +110,10 @@ export class Terrain {
                     zpos * self.voxelSize - worldHalfDepth * self.voxelSize
                 );
 
-                // get neighbor voxels's heighdata
+                // get neighbor cebes's heighdata
                 let neighbors = self.getNeighbors( xpos, zpos, heightData, worldWidth, worldDepth );
 
-                // push top plane for surface voxel
+                // push top plane for surface layer
                 if ( ypos > self.sandBlocks ) {
                     terrainMaterials['grass'].push( cubeGeometry['top'].clone().applyMatrix4( matrix ) );
                 } else {
@@ -227,9 +226,9 @@ export class Terrain {
                 let seaweed = new Grass(self.voxelSize, 'ocean');
                 let grass = new Grass(self.voxelSize, 'land');
 
-                for ( let i = 0, l = vegetationData.tree.length; i < l; i++ ) {
-                    let xpos = vegetationData.tree[i].x;
-                    let zpos = vegetationData.tree[i].z;
+                for ( let i = 0, l = vegetation.tree.length; i < l; i++ ) {
+                    let xpos = vegetation.tree[i].x;
+                    let zpos = vegetation.tree[i].z;
                     let ypos = self.getY(xpos, zpos, heightData, worldWidth);
                     let obj = tree.getMesh();
                     obj.position.set(
@@ -240,9 +239,9 @@ export class Terrain {
                     self.terrain.add( obj );
                 }
 
-                for ( let i = 0, l = vegetationData.grass.length; i < l; i++ ) {
-                    let xpos = vegetationData.grass[i].x;
-                    let zpos = vegetationData.grass[i].z;
+                for ( let i = 0, l = vegetation.grass.length; i < l; i++ ) {
+                    let xpos = vegetation.grass[i].x;
+                    let zpos = vegetation.grass[i].z;
                     let ypos = self.getY(xpos, zpos, heightData, worldWidth);
                     if ( ypos < self.seaLevel) {
                         let obj = seaweed.getMesh();
@@ -263,9 +262,9 @@ export class Terrain {
                     }
                 }
 
-                for ( let i = 0, l = vegetationData.flower.length; i < l; i++ ) {
-                    let xpos = vegetationData.flower[i].x;
-                    let zpos = vegetationData.flower[i].z;
+                for ( let i = 0, l = vegetation.flower.length; i < l; i++ ) {
+                    let xpos = vegetation.flower[i].x;
+                    let zpos = vegetation.flower[i].z;
                     let ypos = self.getY(xpos, zpos, heightData, worldWidth);
                     let obj = flower.getMesh();
                     obj.position.set(
@@ -306,7 +305,7 @@ export class Terrain {
             neighbors['right'] = ( heightData[ (x + 1) + z * worldWidth ] ) | 0;
         }
 
-        // near
+        // far
         if ( z === maxDepth ) {
             neighbors['far'] = 0;
         } else {
@@ -317,7 +316,7 @@ export class Terrain {
         if ( z === maxWidth ) {
             neighbors['near'] = 0;
         } else {
-            neighbors['near'] = ~~( heightData[ x + (z - 1) * worldWidth ] );
+            neighbors['near'] = ( heightData[ x + (z - 1) * worldWidth ] ) | 0;
         }
 
         return neighbors;

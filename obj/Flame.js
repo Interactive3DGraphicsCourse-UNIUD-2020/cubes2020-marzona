@@ -12,11 +12,11 @@ export class Flame {
         this.particleSize = this.width * 4 / 5;
         this.particleNumber = 50;
         this.particleActive = 0;
-        this.particleLayer = particleLayer;
+        this.particleLayer = particleLayer; // this is used to obtain a selective bloom effect
         this.particleCenter = new THREE.Vector3( 0, this.width / 2, 0 );
         this.geometry = new THREE.BoxBufferGeometry( this.particleSize, this.particleSize, this.particleSize );
         this.spawnTimer = 0;
-        this.spawnRate = 0.1; // seconds
+        this.spawnRate = 0.1; // seconds. Time between particle spawns
         this.linearSpeed = 2.0 * scale; // units / s, this has to be set up according to scale value
         this.rotationalSpeed = 0.8; // radians / s
 
@@ -37,23 +37,20 @@ export class Flame {
             this.particleCenter.z
         );
 
-        // pointLight animation properties
-        this.pointLightMinIntensity = 0.5;
-        this.pointLightEaseInSpeed = self.pointLightMinIntensity / (self.spawnRate * self.particleNumber); // not used
-        this.pointLightFadeOutSpeed = self.pointLightMinIntensity / (self.height / self.linearSpeed); // not used
-        this.pointLightTimer = 0;
-        this.pointLightOscillationFrequency = 1; // expressed in Hz
-
         // shadow camera properties
         this.pointLight.castShadow = true;
         this.pointLight.shadow.bias = -0.000045;
         this.pointLight.shadow.mapSize.width = 2048;
         this.pointLight.shadow.mapSize.height = 2048;
 
-        this.mesh.add(this.particleSystem);
-        this.mesh.add(this.pointLight);
+        // pointLight animation properties
+        this.pointLightMinIntensity = 0.5;
+        this.pointLightEaseIn = self.pointLightMinIntensity / (self.spawnRate * self.particleNumber); // not used
+        this.pointLightFadeOut = self.pointLightMinIntensity / (self.height / self.linearSpeed); // not used
+        this.pointLightTimer = 0;
+        this.pointLightOscillationFrequency = 1; // expressed in Hz
 
-        // generate particles
+        // pre-allocate particles
         this.particles = [];
         for( let i = 0; i < this.particleNumber; i++) {
             let particle = new THREE.Mesh( this.geometry, new THREE.MeshBasicMaterial({
@@ -63,6 +60,9 @@ export class Flame {
             particle.layers.enable( this.particleLayer );
             this.particles.push(particle);
         }
+
+        this.mesh.add(this.particleSystem);
+        this.mesh.add(this.pointLight);
         
     }
 
@@ -114,6 +114,7 @@ export class Flame {
 
     animate(time) {
         let self = this;
+        
         if ( self.stopSignal == true ) {
             self.isLit = false;
             self.stopSignal = false;
@@ -163,7 +164,7 @@ export class Flame {
 
             }
 
-
+            // spawn a particle
             if ( self.particleActive != self.particleNumber ) {
 
                 if ( self.spawnTimer >= self.spawnRate ) {

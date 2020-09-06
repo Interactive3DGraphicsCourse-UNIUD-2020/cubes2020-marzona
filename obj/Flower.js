@@ -67,7 +67,7 @@ export class Flower {
         petals.push( petalGeometry.clone().applyMatrix4( matrix ) );
         let petalsGroup = BufferGeometryUtils.mergeBufferGeometries( petals );
         let petalsMesh = new THREE.Mesh( petalsGroup, new THREE.MeshPhongMaterial({
-            color: self.randArray(petalColors)
+            color: self.randArray(petalColors) // takes a random color for petals
         }));
         mesh.add(petalsMesh);
 
