@@ -24,21 +24,20 @@ export var materials = {
     water: new THREE.MeshPhongMaterial({
         //map: textureLoader('../texture/water.png')
         color: 0x0892d0,
-        side: THREE.DoubleSide,
-        shininess: 120,
-        specular: 0x050505,
+        shininess: 64,
+        specular: new THREE.Color(0.31,0.31,0.31),
         opacity: 0.7,
         transparent: true,
         blendSrc: THREE.SrcAlphaFactor,
 		blendDst: THREE.OneMinusSrcAlphaFactor,
-		blendEquation: THREE.AddEquation,
+		blendEquation: THREE.AddEquation
     })
     
 };
 
-function textureLoader( url ){
+function textureLoader( file ){
     var tl = new THREE.TextureLoader();
-    var newTex = tl.load(url); //make the proxy
-    newTex.magFilter = THREE.NearestFilter;//config
-    return newTex; //return configured texture, it will update itself 
+    var newTex = tl.load( file );
+    newTex.magFilter = THREE.NearestFilter; // for lowres textures
+    return newTex;
 }

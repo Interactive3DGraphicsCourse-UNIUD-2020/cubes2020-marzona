@@ -14,8 +14,8 @@
             void main() {
 
                 vUv = uv;
-
                 gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+
             }
         
         </script>
@@ -43,13 +43,37 @@
             import { ShaderPass } from 'https://unpkg.com/three@0.120.0/examples/jsm/postprocessing/ShaderPass.js';
             import { UnrealBloomPass } from 'https://unpkg.com/three@0.120.0/examples/jsm/postprocessing/UnrealBloomPass.js';
             import { Terrain } from './obj/Terrain.js';
-            import { Flame } from './obj/Flame.js'
+            import { Flame } from './obj/Flame.js';
+            import config from './obj/vegetationData.js';
+            import { Bonfire } from './obj/Bonfire.js';
         
             var BLOOM_SCENE = 1;
-            var pivot1, pivot2;
             var bloomComposer, bloomPass, renderPass, finalPass, finalComposer, darkMaterial, materials;
             var scene, camera, renderer, clearColor, bloomLayer, params, controls, stats, clock, timedelta;
-            var dirLight, dirLightSize, hemiLight, flame, terrain;
+            var dirLight, dirLightSize, hemiLight, terrain;
+            var flame, flameMesh, bonfire, bonfireMesh;
+            var ground, groundGeo, groundMat;
+
+            // these are used to set-up orthographic camera
+            var viewSize = 40; // this is in world units
+            var aspectRatio = window.innerWidth / window.innerHeight;
+            var cameraOffset = 10;
+
+            // hemilight and dirlight settings
+            var lightFadeTime = 1.5; // expressed in second
+            var hemiColorDay = new THREE.Color( 0.57, 0.88, 1.00); // day sky color
+            var hemiColorNight = new THREE.Color( 0.01, 0.00, 0.12 ); // night sky color
+            var hemiColorGround = new THREE.Color( 1.00, 0.78, 0.50 ); // ground color
+            var dirColorDay = new THREE.Color( 1.0, 0.96, 0.90 ); // directional day color
+            var dirColorNight = new THREE.Color( 1.0, 0.83, 0.66 ); // directional night color
+            var alpha = 1.0; // alpha value, used for linear interpolation
+            var alphaUpdate = 1.0 / lightFadeTime;
+            var hemiMaxIntensity = 0.6;
+            var hemiMinIntensity = 0.3;
+            var dirMaxIntensity = 0.9;
+            var dirMinIntensity = 0.4;
+            var lightsNeedUpdate = 0;
+            var clearColor = hemiColorDay;
             
             function Setup() {
 
@@ -59,28 +83,28 @@
                 renderer = new THREE.WebGLRenderer({
                     antialias: true,
                     toneMapping: THREE.ReinhardToneMapping,
-                    encoding: THREE.GammaEncoding,        
+                    encoding: THREE.GammaEncoding     
                 });
 
-                clearColor = new THREE.Color(0.9,0.9,0.9);
                 renderer.setSize( window.innerWidth, window.innerHeight );
-                renderer.setClearColor( clearColor );
+                renderer.setClearColor( hemiColorDay );
                 renderer.setPixelRatio( window.devicePixelRatio );
                 document.body.appendChild( renderer.domElement );
 
                 // enable shadowmaps
                 renderer.shadowMap.enabled = true;
-                renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                renderer.shadowMap.type = THREE.PCFShadowMap;
 
                 // - - camera
-                camera = new THREE.PerspectiveCamera(
-                    75,
-                    window.innerWidth / window.innerHeight,
+                camera = new THREE.OrthographicCamera(
+                    (-aspectRatio * viewSize) / 2,
+                    (aspectRatio * viewSize) / 2,
+                    viewSize / 2 + cameraOffset,
+                    -viewSize / 2 + cameraOffset,
                     0.1,
-                    1000
+                    500
                 );
-                camera.position.set(8,2,8);
-                camera.lookAt( new THREE.Vector3(0,0,0));
+                camera.position.set(-60,25,60);
 
                 // - - bloom layer
                 bloomLayer = new THREE.Layers();
@@ -91,7 +115,7 @@
                     bloomStrength : 1.75,
                     bloomThreshold: 0,
                     bloomRadius: 0,
-                    scene: "Only emissive light sources"
+                    scene: "Only emissive-material light sources"
                 }
 
                 renderPass = new RenderPass( scene, camera );
@@ -127,14 +151,16 @@
                 
                 // - - stats
                 stats = new Stats();
+                stats.showPanel( 1 );
                 document.body.appendChild( stats.domElement );
 
                 // - - orbit controls
                 controls = new OrbitControls( camera, renderer.domElement );
                 controls.addEventListener( 'change', Render );
-                //controls.maxPolarAngle = Math.PI * 0.5;
-                controls.minDistance = 1;
-                controls.maxDistance = 10000;
+                controls.maxPolarAngle = Math.PI * 0.5;
+                controls.minPolarAngle = Math.PI * 0.1;
+                controls.enableKeys = false;
+                // controls.enableDamping = true;
             
                 // - - clock for animations
                 clock = new THREE.Clock();
@@ -144,46 +170,60 @@
 
             function BuildScene() {
                 // - - scene lights
-                hemiLight = new THREE.HemisphereLight( 0xffffff, 0xffffff, 0.6 );
-                hemiLight.color.setHSL( 0.6, 1, 0.6 );
-                hemiLight.groundColor.setHSL( 0.095, 1, 0.75 );
+                hemiLight = new THREE.HemisphereLight( hemiColorDay, hemiColorGround, hemiMaxIntensity );
                 hemiLight.position.set( 0, 500, 0 );
                 scene.add( hemiLight );
 
                 dirLightSize = 30;
-                dirLight = new THREE.DirectionalLight( 0xffffff, 1 );
-                dirLight.color.setHSL( 0.1, 1, 0.95 );
-                dirLight.position.set( 0, 1.0, 1.0 );
+                dirLight = new THREE.DirectionalLight( dirColorDay, 1.0 );
+                dirLight.position.set( -1, 1.75, -1 );
                 dirLight.position.multiplyScalar( 50 );
                 dirLight.castShadow = true;
-                dirLight.shadow.mapSize.width = 2048;
-                dirLight.shadow.mapSize.height = 2048;
-                dirLight.shadow.bias = - 0.0005;
+                dirLight.shadow.mapSize.width = 4096;
+                dirLight.shadow.mapSize.height = 4096;
+                dirLight.shadow.bias = -0.0003;
+                dirLight.shadow.camera.far = 200;
+                dirLight.shadow.camera.near = 0.1;
                 dirLight.shadow.camera.left = -dirLightSize;
                 dirLight.shadow.camera.right = dirLightSize;
                 dirLight.shadow.camera.top = dirLightSize;
                 dirLight.shadow.camera.bottom = -dirLightSize;
                 scene.add( dirLight );
 
-                // so... it is not working
-                var helper = new THREE.CameraHelper( dirLight.shadow.camera );
-                scene.add( helper );
-
-                // - - objects
-                /*flame = new Flame( 2.0, BLOOM_SCENE );
-                scene.add(flame.getMesh());
-                flame.getMesh().position.set(
-                    0,
-                    10,
-                    0
+                // - - bonfire
+                bonfire = new Bonfire(16.0);
+                bonfireMesh = bonfire.getMesh();
+                bonfireMesh.position.set(
+                    0.5,
+                    8.5,
+                    -2.5
                 );
-                flame.start();*/
+                scene.add(bonfireMesh);
+                bonfire.loadBonfire();
 
-                // terrain
-                terrain = new Terrain( 'texture/terrain.png', 1.0, 7, 2, 7 );
-                //terrain = new Terrain( 'texture/terrain2.png', 0.1 );
+                // - - flame
+                flame = new Flame(0.5);
+                flameMesh = flame.getMesh();
+                flameMesh.position.set(
+                    0.5,
+                    8.75,
+                    -2.5
+                );
+                scene.add(flameMesh);
+
+
+                // - - terrain
+                terrain = new Terrain( 'texture/terrain.png', 1.0, 7, 2, 7, config );
                 scene.add(terrain.getMesh());
                 terrain.loadTerrain();
+
+                // - - plane
+                groundGeo = new THREE.BoxBufferGeometry( 110, 110, 1 );
+                groundMat = new THREE.MeshPhongMaterial( { color: 0x39393b, specular: 0x050505} );
+                ground = new THREE.Mesh( groundGeo, groundMat );
+                ground.rotation.x = -Math.PI/2;
+                scene.add( ground );
+                ground.receiveShadow = true;
 
             }
             
@@ -199,19 +239,17 @@
                 //renderer.render(scene, camera);
                 renderBloom();
                 finalComposer.render();
-
-
             }
 
             function Animate() {       
                 timedelta = clock.getDelta();
-                //flame.animate(timedelta);
-                dirLight.position.z -= 0.1;
+                flame.animate( timedelta );
+                updateSceneLights( timedelta );
             }
             
             function renderBloom() {
                 scene.traverse( darkenNonBloomed );
-                renderer.setClearColor( 0x000000 );
+                renderer.setClearColor( new THREE.Color(0.0,0.0,0.0) );
                 bloomComposer.render();
                 renderer.setClearColor( clearColor );
                 scene.traverse( restoreMaterial );
@@ -220,10 +258,8 @@
             function darkenNonBloomed( obj ) {
 
                 if ( obj.isMesh && bloomLayer.test( obj.layers ) === false ) {
-
                     materials[ obj.uuid ] = obj.material;
                     obj.material = darkMaterial;
-
                 }
 
             }
@@ -231,18 +267,105 @@
             function restoreMaterial( obj ) {
 
                 if ( materials[ obj.uuid ] ) {
-
                     obj.material = materials[ obj.uuid ];
                     delete materials[ obj.uuid ];
-
                 }
 
+            }
+
+            function updateSceneLights( time ) {
+                if ( lightsNeedUpdate !== 0 ) {
+                    if ( lightsNeedUpdate === 1 ) {
+
+                        alpha -= ( time * alphaUpdate);
+                        if (alpha < 0) {
+                            alpha = 0;
+                            lightsNeedUpdate = 0;
+                        }
+
+                        dirLight.intensity = dirMinIntensity + (alpha * (  dirMaxIntensity - dirMinIntensity ));
+                        hemiLight.intensity = hemiMinIntensity + (alpha * (  hemiMaxIntensity - hemiMinIntensity ));
+                        dirLight.color = colorGradient( dirColorDay, dirColorNight, alpha );
+                        clearColor = colorGradient( hemiColorDay, hemiColorNight, alpha);
+                        hemiLight.color = clearColor;
+                        renderer.setClearColor( clearColor );
+                    }
+                    if ( lightsNeedUpdate === 2 ) {
+                        alpha += ( time * alphaUpdate);
+                        if (alpha > 1) {
+                            alpha = 1;
+                            lightsNeedUpdate = 0;
+                        }
+
+                        dirLight.intensity = dirMinIntensity + (alpha * (  dirMaxIntensity - dirMinIntensity ));
+                        hemiLight.intensity = hemiMinIntensity + (alpha * (  hemiMaxIntensity - hemiMinIntensity ));
+                        dirLight.color = colorGradient( dirColorDay, dirColorNight, alpha );
+                        clearColor = colorGradient( hemiColorDay, hemiColorNight, alpha);
+                        hemiLight.color = clearColor;
+                        renderer.setClearColor( clearColor );
+                    }
+                }
             }
 
             Setup();
             BuildScene();
             Update();
+
+            // ui handlers
+            var flameOn = false;
+            var sunlightOn = true;
+            
+            window.buttonPressHandler = function( parent, sceneElement ) {
+                if ( parent.getAttribute('class') == 'on' ) {
+                    parent.innerHTML = "OFF";
+                    parent.setAttribute("class", "off");
+                } else {
+                    parent.innerHTML = "ON";
+                    parent.setAttribute("class", "on");
+                }
+
+                if ( sceneElement == 'flame' ) {
+                    if ( flameOn ) {
+                        flame.stop();
+                        flameOn = false;
+                    } else {
+                        flame.start();
+                        flameOn = true;
+                    }
+                }
+
+                if ( sceneElement == 'sunlight' ) {
+                    if ( sunlightOn ) {
+                        sunlightOn = false;
+                        lightsNeedUpdate = 1;
+                    } else {
+                        document.getElementsByTagName("stats").display = "inline";
+                        sunlightOn = true;
+                        lightsNeedUpdate = 2;
+                    }
+                }
+            }
+
+            // This uses RGB colors in [0.0 1.0] range
+            function colorGradient( color1, color2, alpha ) {
+                let r,g,b;
+                let colorPick;
+
+                r = (color1.r * (alpha) + color2.r * ( 1 - alpha ) );
+                g = (color1.g * (alpha) + color2.g * ( 1 - alpha ) );
+                b = (color1.b * (alpha) + color2.b * ( 1 - alpha ) );
+
+                colorPick = new THREE.Color( r,g,b );
+                return colorPick;
+
+            }
             
         </script>
+        <div id='controls'>
+            <h3><u>Controls</u></h3>
+            <p>Sunlight: <button class="on" onclick="buttonPressHandler(this, 'sunlight')">ON</button></p>
+            <p>Bonfire: <button class="off" onclick="buttonPressHandler(this, 'flame')">OFF</button></p>
+        </div>
+
     </body>
 </html>

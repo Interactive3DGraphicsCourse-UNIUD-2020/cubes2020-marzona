@@ -1,11 +1,15 @@
 import * as THREE from 'https://unpkg.com/three@0.120.0/build/three.module.js';
 import { BufferGeometryUtils } from 'https://unpkg.com/three@0.120.0/examples/jsm/utils/BufferGeometryUtils.js';
-import { materials } from './materials.js'
+import { materials } from './materials.js';
+import { Flower } from './Flower.js';
+import { Tree } from './Tree.js';
+import { Grass } from './Grass.js';
+import vegetationData from './vegetationData.js';
 
 // Note: scale is used as cube size
 export class Terrain {
 
-    constructor(image, scale = 1, seaLevel = 16, dirtBlocks = 4, sandBlocks = 18 ) {
+    constructor(image, scale = 1, seaLevel = 16, dirtBlocks = 4, sandBlocks = 18, vegetation = null ) {
         this.image = image;
         this.scale = scale;
         this.voxelSize = 16;
@@ -14,6 +18,7 @@ export class Terrain {
         this.seaLevel = seaLevel;
         this.dirtBlocks = dirtBlocks;
         this.sandBlocks = sandBlocks;
+        this.vegetation = vegetation;
 
         this.terrain = new THREE.Object3D();
     }
@@ -164,7 +169,6 @@ export class Terrain {
 
                 // push water side planes for voxels on the terrain's edges
                 // not particularly efficient but seems to work
-
                 if ( ypos < self.seaLevel && ( (zpos === 0) || (xpos === 0) || (zpos === (worldDepth - 1)) || (xpos === (worldWidth - 1)) ) ) {
                     let curHeight = self.seaLevel;
                     while ( curHeight > ypos ) {
@@ -197,6 +201,7 @@ export class Terrain {
         
             }
             
+            // build terrain meshes
             for (let material in terrainMaterials) {
 
                 if ( terrainMaterials[material].length !== 0 ) {
@@ -210,6 +215,65 @@ export class Terrain {
 
                     self.terrain.add(mesh);
 
+                }
+
+            }
+
+            // add vegetation if supplied
+            if (self.vegetation !== null) {
+                let vegetation = self.vegetation;
+                let tree = new Tree(self.voxelSize);
+                let flower = new Flower(self.voxelSize);
+                let seaweed = new Grass(self.voxelSize, 'ocean');
+                let grass = new Grass(self.voxelSize, 'land');
+
+                for ( let i = 0, l = vegetationData.tree.length; i < l; i++ ) {
+                    let xpos = vegetationData.tree[i].x;
+                    let zpos = vegetationData.tree[i].z;
+                    let ypos = self.getY(xpos, zpos, heightData, worldWidth);
+                    let obj = tree.getMesh();
+                    obj.position.set(
+                        xpos * self.voxelSize - worldHalfWidth * self.voxelSize,
+                        ypos * self.voxelSize + self.voxelSize / 2,
+                        zpos * self.voxelSize - worldHalfDepth * self.voxelSize
+                    );
+                    self.terrain.add( obj );
+                }
+
+                for ( let i = 0, l = vegetationData.grass.length; i < l; i++ ) {
+                    let xpos = vegetationData.grass[i].x;
+                    let zpos = vegetationData.grass[i].z;
+                    let ypos = self.getY(xpos, zpos, heightData, worldWidth);
+                    if ( ypos < self.seaLevel) {
+                        let obj = seaweed.getMesh();
+                        obj.position.set(
+                            xpos * self.voxelSize - worldHalfWidth * self.voxelSize,
+                            ypos * self.voxelSize + self.voxelSize / 2,
+                            zpos * self.voxelSize - worldHalfDepth * self.voxelSize
+                        );
+                        self.terrain.add( obj );
+                    } else {
+                        let obj = grass.getMesh();
+                        obj.position.set(
+                            xpos * self.voxelSize - worldHalfWidth * self.voxelSize,
+                            ypos * self.voxelSize + self.voxelSize / 2,
+                            zpos * self.voxelSize - worldHalfDepth * self.voxelSize
+                        );
+                        self.terrain.add( obj );
+                    }
+                }
+
+                for ( let i = 0, l = vegetationData.flower.length; i < l; i++ ) {
+                    let xpos = vegetationData.flower[i].x;
+                    let zpos = vegetationData.flower[i].z;
+                    let ypos = self.getY(xpos, zpos, heightData, worldWidth);
+                    let obj = flower.getMesh();
+                    obj.position.set(
+                        xpos * self.voxelSize - worldHalfWidth * self.voxelSize,
+                        ypos * self.voxelSize + self.voxelSize / 2,
+                        zpos * self.voxelSize - worldHalfDepth * self.voxelSize
+                    );
+                    self.terrain.add( obj );
                 }
 
             }
