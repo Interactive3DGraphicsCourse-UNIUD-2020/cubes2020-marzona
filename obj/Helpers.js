@@ -1,4 +1,4 @@
-import * as THREE from 'https://unpkg.com/three@0.120.0/build/three.module.js';
+import * as THREE from '../three/build/three.module.js';
 
 function randInt( min, max ) {
     return ~~((Math.random() * (max - min + 1)) + min);

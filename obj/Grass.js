@@ -1,6 +1,6 @@
-import * as THREE from 'https://unpkg.com/three@0.120.0/build/three.module.js';
-import { BufferGeometryUtils } from 'https://unpkg.com/three@0.120.0/examples/jsm/utils/BufferGeometryUtils.js';
-import { randInt } from './Helpers.js'
+import * as THREE from '../three/build/three.module.js';
+import * as BufferGeometryUtils from '../three/examples/jsm/utils/BufferGeometryUtils.js';
+import { randInt } from './Helpers.js';
 
 export class Grass {
 

@@ -1,4 +1,5 @@
-import * as THREE from 'https://unpkg.com/three@0.120.0/build/three.module.js';
+import * as THREE from '../three/build/three.module.js';
+
 export var materials = {
 
     grass: new THREE.MeshPhongMaterial({

@@ -1,5 +1,5 @@
-import * as THREE from 'https://unpkg.com/three@0.120.0/build/three.module.js';
-import { OBJLoader } from 'https://unpkg.com/three@0.120.0/examples/jsm/loaders/OBJLoader.js';
+import * as THREE from '../three/build/three.module.js';
+import { OBJLoader } from '../three/examples/jsm/loaders/OBJLoader.js';
 
 export class Bonfire {
     constructor (scale = 1.0) {
