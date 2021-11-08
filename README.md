@@ -17,6 +17,8 @@ This repository includes:
 * `./main.css` -> A stylesheet used to style UI Controls
 * `./README.md` -> This file
 * `./journal.md` -> A text document that describes, in broad terms, the creation process
+* `./three/..` -> Local threejs library
+* `./modules/..` -> GLSL Shaders & other supplementary code
 * **`./obj`** -> Contains all scene's objects, either in self-enclosed Javascript classes/modules or in OBJ models
   * `./obj/Flame.js` -> The cube-based particle system that animates the flame and its light
   * `./obj/Bonfire.js` -> A class that loads and assigns materials to the bonfire elements (included in the **bonfire** sub-directory)
@@ -31,7 +33,7 @@ This repository includes:
 * **`./photos`** -> Contains pictures used in this README
 * **`./textures`** -> Contains the heightmap and some textures that were used for testing purposes (from [Painterly Pack](http://painterlypack.net/))
 
-The project **does not** include a static version of the threejs library. All modules used are fetched from UNPKG's CDN system.
+<s>The project **does not** include a static version of the threejs library. All modules used are fetched from UNPKG's CDN system.</s>
 
 ## Performance and browser compatibility
 The scene displays correctly on Firefox (80), Safari (13.0.5), and Chrome (85), with the last one being the worst performing.
@@ -39,7 +41,11 @@ The framerate goes from 19 to 35 fps (depending on the zoom level) on a laptop w
 Memory usage is pretty low on all tested environments (~40-50Mb).
 
 The most performance taxing element of the scene seems to be shadows.
-To make the scene perform adequately on integrated graphics some tweaking was done to optimize shadow cameras position, resolution and frustum size; however, to avoid severe shadow acne and peter-panning effects, I had to set the shadowmap's size to 4k on the directional light simulating the sun/moon and to 2k on the flame's point light.
+To make the scene perform adequately on integrated graphics some tweaking was done to optimize shadow cameras position, resolution and frustum size; however, to <s>avoid severe shadow acne and peter-panning effects, I had to set the shadowmap's size to 4k on the directional light simulating the sun/moon and to 2k on the flame's point light.</s>
+
+The directional light used to simulate direct sunlight has been replaced with a Spotlight with a very narrow angle and a precisely positioned shadow camera. This change boosts performance a lot.
+
+The **UnrealBloom** postFX takes a lot of rendering time, still (it has to traverse the whole scene for every frame and at the moment i can't think of a better solution).
 
 Other possible optimizations include rewriting the vegetation classes to use instanced meshes. Loading the terrain without vegetation, however, does not seem to offer a noticeable enough performance boost.
 
