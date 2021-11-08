@@ -15,7 +15,7 @@ import { bloom_fs, bloom_vs } from './modules/shaders.js'; // glsl shaders
 var BLOOM_SCENE = 1;
 var bloomComposer, bloomPass, renderPass, finalPass, finalComposer, darkMaterial, materials;
 var scene, camera, renderer, clearColor, bloomLayer, params, controls, stats, clock, timedelta;
-var dirLight, dirLightSize, hemiLight, terrain;
+var terrain, spotLight, spotLightHelper, hemiLight;
 var flame, flameMesh, bonfire, bonfireMesh;
 var ground, groundGeo, groundMat;
 
@@ -26,19 +26,18 @@ var cameraOffset = 10; // used to shift camera on the Y axis
 
 // hemilight and dirlight settings
 var lightFadeTime = 1.5; // expressed in second
-var hemiColorDay = new THREE.Color( 0.57, 0.88, 1.00); // day sky color
-var hemiColorNight = new THREE.Color( 0.09, 0.09, 0.14 ); // night sky color
+var skyColorDay = new THREE.Color( 0.57, 0.88, 1.00); // day sky color
+var skyColorNight = new THREE.Color( 0.04,0.04,0.12 ); // night sky color
 var hemiColorGround = new THREE.Color( 1.00, 0.78, 0.50 ); // ground color
-var dirColorDay = new THREE.Color( 1.0, 0.96, 0.90 ); // directional day color
-var dirColorNight = new THREE.Color( 1.0, 0.83, 0.66 ); // directional night color, used 4100K color temperature
+var sunlightColor = new THREE.Color( 1.0, 1.0, 1.0 ); // direct sunlight
 var alpha = 1.0; // alpha value, used for linear interpolation
 var alphaUpdate = 1.0 / lightFadeTime;
+var lightMaxIntensity = 0.9;
+var lightMinIntensity = 0.4;
 var hemiMaxIntensity = 0.6;
 var hemiMinIntensity = 0.3;
-var dirMaxIntensity = 0.9;
-var dirMinIntensity = 0.4;
 var lightsNeedUpdate = 0;
-var clearColor = hemiColorDay;
+var clearColor = skyColorDay;
 
 function Setup() {
 
@@ -52,15 +51,11 @@ function Setup() {
     });
 
     renderer.setSize( window.innerWidth, window.innerHeight );
-    renderer.setClearColor( hemiColorDay );
+    renderer.setClearColor( skyColorDay );
     renderer.setPixelRatio( window.devicePixelRatio );
 
     const application = document.getElementById("application");
     application.appendChild( renderer.domElement );
-
-    // enable shadowmaps
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFShadowMap; // this seems to give the best results
 
     // - - camera
     camera = new THREE.OrthographicCamera(
@@ -135,26 +130,39 @@ function Setup() {
 }
 
 function BuildScene() {
-    // - - scene lights
-    hemiLight = new THREE.HemisphereLight( hemiColorDay, hemiColorGround, hemiMaxIntensity );
+    // enable shadowmaps
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFShadowMap; // this seems to give the best results
+
+    // sunlight
+    spotLight = new THREE.SpotLight( sunlightColor, lightMaxIntensity );
+    spotLight.position.set( -200, 350, -200 );
+    spotLight.penumbra = 0;
+    spotLight.angle = Math.PI / 12.0;
+
+    spotLight.castShadow = true;
+    spotLight.shadow.mapSize.width = 4096;
+    spotLight.shadow.mapSize.height = 4096;
+    spotLight.decay = 0.0;
+    spotLight.shadow.bias = -0.0000003;
+
+    spotLight.shadow.camera.near = 0.5;
+    spotLight.shadow.camera.far = 500;
+    spotLight.shadow.camera.fov = 20;
+
+    scene.add( spotLight );
+
+    // spotLightHelper = new THREE.SpotLightHelper( spotLight );
+    // spotLightHelper.color = new THREE.Color( 0xffffff);
+    // scene.add( spotLightHelper );
+
+    // const helper = new THREE.CameraHelper( spotLight.shadow.camera );
+    // scene.add( helper );
+
+    // ambient diffuse
+    hemiLight = new THREE.HemisphereLight( skyColorDay, hemiColorGround, hemiMaxIntensity );
     hemiLight.position.set( 0, 500, 0 );
     scene.add( hemiLight );
-
-    dirLightSize = 30;
-    dirLight = new THREE.DirectionalLight( dirColorDay, 1.0 );
-    dirLight.position.set( -1, 1.75, -1 );
-    dirLight.position.multiplyScalar( 50 );
-    dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 4096;
-    dirLight.shadow.mapSize.height = 4096;
-    dirLight.shadow.bias = -0.0003;
-    dirLight.shadow.camera.far = 200;
-    dirLight.shadow.camera.near = 0.1;
-    dirLight.shadow.camera.left = -dirLightSize;
-    dirLight.shadow.camera.right = dirLightSize;
-    dirLight.shadow.camera.top = dirLightSize;
-    dirLight.shadow.camera.bottom = -dirLightSize;
-    scene.add( dirLight );
 
     // - - bonfire
     bonfire = new Bonfire(16.0);
@@ -255,10 +263,10 @@ function updateSceneLights( time ) {
                 lightsNeedUpdate = 0;
             }
         }
-        dirLight.intensity = dirMinIntensity + (alpha * (  dirMaxIntensity - dirMinIntensity ));
+        spotLight.intensity = lightMinIntensity + (alpha * (  lightMaxIntensity - lightMinIntensity ));
         hemiLight.intensity = hemiMinIntensity + (alpha * (  hemiMaxIntensity - hemiMinIntensity ));
-        dirLight.color = colorGradient( dirColorDay, dirColorNight, alpha );
-        clearColor = colorGradient( hemiColorDay, hemiColorNight, alpha);
+
+        clearColor = colorGradient( skyColorDay, skyColorNight, alpha);
         hemiLight.color = clearColor;
         renderer.setClearColor( clearColor );
     }
