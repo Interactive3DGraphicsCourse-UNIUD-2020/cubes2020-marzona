@@ -48,10 +48,10 @@ var lightNeedUpdate = 0;
 var clearColor = skyColorDay;
 
 let lights_params = {
-    shadowBias: 0,
+    shadowBias: 0.000001,
     lightNear: 1,
-    lightFar: 5000,
-    maxFar: 1000,
+    lightFar: 370,
+    maxFar: 370,
     margin: 100,
     ambientMaxIntensity: 0.60,
     ambientMinIntensity: 0.20,
@@ -198,8 +198,9 @@ function BuildScene() {
 
     // add csm
     csm = new CSM( {
+
 	    cascades: 4,
-	    shadowMapSize: 4096,
+	    shadowMapSize: 1024,
         parent: scene,
         lightDirection: lightDirection,
         camera: camera,
