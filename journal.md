@@ -46,3 +46,9 @@ Le due luci poste nella scena che generano ombra sono la luce direzionale e quel
 - Alcuni tentativi sono stati effettuati per inserire un FadeIn/FadeOut sull'accensione e spegnimento del fuoco, tuttavia senza buoni risultati. Provare a integrare un'animazione con tweenjs
 - L'aggiunta alla scena di un 'cavaliere' in voxel-art con il compito di accendere il fuoco era stata programmata, un modello è stato realizzato in Magica Voxel, tuttavia l'animazione non è ancora stata realizzata
 - La generazione della vegetazione potrebbe essere ottimizzata utilizzando instanced meshes
+
+## Aggiornamenti - 7/8 Novembre 2021
+- Rivisti velocemente i moduli del progetto. Ora l'installazione di threejs utilizzata è aggiornata (r134) ed è locale.
+- Effettuati alcuni tentativi per risolvere i problemi di performance.
+
+Ho provato a prendere qualche idea dal libro **Lighting & Rendering - Jeremy Birn** per rivedere il sistema di illuminazione della scena. Ho fatto sia un tentativo di integrare la tecnica "Cascaded Shadow Maps", che a rigor di logica dovrebbe essere la scelta migliore per simulare la luce diretta del sole su una scena come quella realizzata, che una prova con una singola Spotlight per illuminare l'intera scena.
