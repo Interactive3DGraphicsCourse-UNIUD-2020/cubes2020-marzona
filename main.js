@@ -11,34 +11,53 @@ import config from './obj/vegetationData.js';
 import { Bonfire } from './obj/Bonfire.js';
 import { colorGradient } from './obj/Helpers.js';
 import { bloom_fs, bloom_vs } from './modules/shaders.js'; // glsl shaders
+import { CSM } from './three/examples/jsm/csm/CSM.js';
+import { CSMHelper } from './three/examples/jsm/csm/CSMHelper.js';
+import { GUI } from './three/examples/jsm/libs/dat.gui.module.js';
+
+/*
+    // This is a tentative to integrate Cascaded Shadow Maps
+    // the class is missing from official documentation
+    //
+    // see this: https://github.com/vHawk/three-csm
+*/
 
 var BLOOM_SCENE = 1;
 var bloomComposer, bloomPass, renderPass, finalPass, finalComposer, darkMaterial, materials;
-var scene, camera, renderer, clearColor, bloomLayer, params, controls, stats, clock, timedelta;
-var dirLight, dirLightSize, hemiLight, terrain;
+var scene, camera, renderer, clearColor, bloomLayer, params, controls, stats, clock, delta;
+var ambientLight, csm, csmHelper, terrain;
 var flame, flameMesh, bonfire, bonfireMesh;
 var ground, groundGeo, groundMat;
+
 
 // these are used to set-up orthographic camera
 var viewSize = 40; // in world units
 var aspectRatio = window.innerWidth / window.innerHeight;
 var cameraOffset = 10; // used to shift camera on the Y axis
 
-// hemilight and dirlight settings
+// sky color & ambient light fading
+var lightDirection = (new THREE.Vector3(1, -1.75, 1)).normalize();
 var lightFadeTime = 1.5; // expressed in second
-var hemiColorDay = new THREE.Color( 0.57, 0.88, 1.00); // day sky color
-var hemiColorNight = new THREE.Color( 0.09, 0.09, 0.14 ); // night sky color
-var hemiColorGround = new THREE.Color( 1.00, 0.78, 0.50 ); // ground color
-var dirColorDay = new THREE.Color( 1.0, 0.96, 0.90 ); // directional day color
-var dirColorNight = new THREE.Color( 1.0, 0.83, 0.66 ); // directional night color, used 4100K color temperature
-var alpha = 1.0; // alpha value, used for linear interpolation
-var alphaUpdate = 1.0 / lightFadeTime;
-var hemiMaxIntensity = 0.6;
-var hemiMinIntensity = 0.3;
-var dirMaxIntensity = 0.9;
-var dirMinIntensity = 0.4;
-var lightsNeedUpdate = 0;
-var clearColor = hemiColorDay;
+var alpha = 1.0;
+var alphaUpdate = 1.0 / lightFadeTime; // used for linear interpolation
+var skyColorDay = new THREE.Color( 0.57, 0.88, 1.00); // day sky color
+var skyColorNight = new THREE.Color( 0.09, 0.09, 0.14 ); // night sky color
+// var skyColorDay = new THREE.Color( 0.0, 0.0, 0.0); // day sky color
+// var skyColorNight = new THREE.Color( 0.0, 0.0, 0.0); // night sky color
+var lightNeedUpdate = 0;
+var clearColor = skyColorDay;
+
+let lights_params = {
+    shadowBias: 0,
+    lightNear: 1,
+    lightFar: 5000,
+    maxFar: 1000,
+    margin: 100,
+    ambientMaxIntensity: 0.60,
+    ambientMinIntensity: 0.20,
+    shadowMaxIntensity: 0.60,
+    shadowMinIntensity: 0.20,
+};
 
 function Setup() {
 
@@ -52,15 +71,11 @@ function Setup() {
     });
 
     renderer.setSize( window.innerWidth, window.innerHeight );
-    renderer.setClearColor( hemiColorDay );
+    renderer.setClearColor( skyColorDay );
     renderer.setPixelRatio( window.devicePixelRatio );
 
     const application = document.getElementById("application");
     application.appendChild( renderer.domElement );
-
-    // enable shadowmaps
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFShadowMap; // this seems to give the best results
 
     // - - camera
     camera = new THREE.OrthographicCamera(
@@ -117,8 +132,7 @@ function Setup() {
     
     // - - stats
     stats = new Stats();
-    stats.showPanel( 0 ); // 0 fps, 1 ms, 2 Mb (only in chrome browser)
-    document.body.appendChild( stats.domElement );
+    document.body.appendChild( stats.domElement ); // this shouldn't be needed anymore
 
     // - - orbit controls
     controls = new OrbitControls( camera, renderer.domElement );
@@ -130,31 +144,77 @@ function Setup() {
 
     // - - clock for animations
     clock = new THREE.Clock();
-    timedelta = 0;
-    
+    delta = 0;
+
+    // - - - gui, used to setup shadow cameras
+    const gui = new GUI();
+
+    gui.add( lights_params, 'maxFar', 0, 500 ).step( 1 ).name( 'shadow far' ).onChange( function ( value ) {
+        csm.maxFar = value;
+        csm.updateFrustums();
+    });
+
+    gui.add( lights_params, 'margin', 1, 5000 ).name( 'light margin' ).onChange( function ( value ) {
+        csm.lightMargin = value;
+        csm.updateFrustums();
+    });
+
+    gui.add( lights_params, 'lightNear', 1, 10000 ).name( 'light near' ).onChange( function ( value ) {
+        csm.lightNear = value;
+        csm.updateFrustums();
+    });
+
+    gui.add( lights_params, 'lightFar', 1, 10000 ).name( 'light far' ).onChange( function ( value ) {
+        csm.lightFar = value;
+        csm.updateFrustums();
+    });
+
+    gui.add( lights_params, 'ambientMinIntensity', 0.01, 1.00 ).name( 'amb min' ).onChange( function ( value ) {
+        
+    });
+
+    gui.add( lights_params, 'ambientMaxIntensity', 0.01, 1.00 ).name( 'amb max' ).onChange( function ( value ) {
+        
+    });
+
+    gui.add( lights_params, 'shadowMinIntensity', 0.01, 1.00 ).name( 'shadow min' ).onChange( function ( value ) {
+        
+    });
+
+    gui.add( lights_params, 'shadowMaxIntensity', 0.01, 1.00 ).name( 'shadow max' ).onChange( function ( value ) {
+        
+    });
+  
 }
 
 function BuildScene() {
-    // - - scene lights
-    hemiLight = new THREE.HemisphereLight( hemiColorDay, hemiColorGround, hemiMaxIntensity );
-    hemiLight.position.set( 0, 500, 0 );
-    scene.add( hemiLight );
+    // enable shadowmaps
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFShadowMap; // this seems to give the best results
 
-    dirLightSize = 30;
-    dirLight = new THREE.DirectionalLight( dirColorDay, 1.0 );
-    dirLight.position.set( -1, 1.75, -1 );
-    dirLight.position.multiplyScalar( 50 );
-    dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 4096;
-    dirLight.shadow.mapSize.height = 4096;
-    dirLight.shadow.bias = -0.0003;
-    dirLight.shadow.camera.far = 200;
-    dirLight.shadow.camera.near = 0.1;
-    dirLight.shadow.camera.left = -dirLightSize;
-    dirLight.shadow.camera.right = dirLightSize;
-    dirLight.shadow.camera.top = dirLightSize;
-    dirLight.shadow.camera.bottom = -dirLightSize;
-    scene.add( dirLight );
+    // add ambient
+    ambientLight = new THREE.AmbientLight( 0xffffff, lights_params.ambientMaxIntensity );
+	scene.add( ambientLight );
+
+    // add csm
+    csm = new CSM( {
+	    cascades: 4,
+	    shadowMapSize: 4096,
+        parent: scene,
+        lightDirection: lightDirection,
+        camera: camera,
+        mode: 'practical',
+        shadowBias: lights_params.shadowBias,
+        lightNear: lights_params.lightNear,
+        lightFar: lights_params.lightFar,
+        maxFar: lights_params.maxFar,
+        margin: lights_params.margin,
+        lightIntensity: lights_params.shadowMaxIntensity,
+    } );
+
+    csmHelper = new CSMHelper( csm );
+    csmHelper.visible = false;
+    scene.add( csmHelper );
 
     // - - bonfire
     bonfire = new Bonfire(16.0);
@@ -194,6 +254,14 @@ function BuildScene() {
 
 function Update() {
     requestAnimationFrame( Update );
+    
+    camera.updateMatrixWorld();
+	csm.update();
+
+    camera.updateProjectionMatrix();
+	csm.updateFrustums();
+    csmHelper.update();
+
     controls.update();  
     stats.update();
     Animate();
@@ -207,9 +275,9 @@ function Render() {
 }
 
 function Animate() {       
-    timedelta = clock.getDelta();
-    flame.animate( timedelta );
-    updateSceneLights( timedelta );
+    delta = clock.getDelta();
+    flame.animate( delta );
+    updateSceneLights( delta );
 }
 
 function renderBloom() {
@@ -218,6 +286,19 @@ function renderBloom() {
     bloomComposer.render();
     renderer.setClearColor( clearColor );
     scene.traverse( restoreMaterial );
+}
+
+// This binds scene materials to the csm's shadow camera
+function BindMaterials() {
+    scene.traverse( function ( child ) {
+
+        if ( child instanceof THREE.Mesh ) {
+
+            csm.setupMaterial( child.material );
+
+        }
+
+    } );
 }
 
 // sets cdiff to black for all meshes not in bloom layer
@@ -240,32 +321,35 @@ function restoreMaterial( obj ) {
 }
 
 function updateSceneLights( time ) {
-    if ( lightsNeedUpdate !== 0 ) {
-        if ( lightsNeedUpdate === 1 ) { // day to night
+    if ( lightNeedUpdate !== 0 ) {
+        if ( lightNeedUpdate === 1 ) { // day to night
             alpha -= ( time * alphaUpdate);
             if (alpha < 0) {
                 alpha = 0;
-                lightsNeedUpdate = 0;
+                lightNeedUpdate = 0;
             }
         }
-        if ( lightsNeedUpdate === 2 ) { // night to day
+        if ( lightNeedUpdate === 2 ) { // night to day
             alpha += ( time * alphaUpdate);
             if (alpha > 1) {
                 alpha = 1;
-                lightsNeedUpdate = 0;
+                lightNeedUpdate = 0;
             }
         }
-        dirLight.intensity = dirMinIntensity + (alpha * (  dirMaxIntensity - dirMinIntensity ));
-        hemiLight.intensity = hemiMinIntensity + (alpha * (  hemiMaxIntensity - hemiMinIntensity ));
-        dirLight.color = colorGradient( dirColorDay, dirColorNight, alpha );
-        clearColor = colorGradient( hemiColorDay, hemiColorNight, alpha);
-        hemiLight.color = clearColor;
+        ambientLight.intensity = lights_params.ambientMinIntensity + (alpha * ( lights_params.ambientMaxIntensity - lights_params.ambientMinIntensity ));
+        csm.lightIntensity = lights_params.shadowMinIntensity + (alpha * ( lights_params.shadowMaxIntensity - lights_params.shadowMinIntensity ));
+
+        csm.updateFrustums();
+        csm.update();
+
+        clearColor = colorGradient( skyColorDay, skyColorNight, alpha);
         renderer.setClearColor( clearColor );
     }
 }
 
 Setup();
 BuildScene();
+BindMaterials();
 Update();
 
 // - - ui handlers
@@ -295,10 +379,10 @@ window.buttonPressHandler = function( parent, sceneElement ) {
     if ( sceneElement == 'sunlight' ) {
         if ( sunlightOn ) {
             sunlightOn = false;
-            lightsNeedUpdate = 1;
+            lightNeedUpdate = 1;
         } else {
             sunlightOn = true;
-            lightsNeedUpdate = 2;
+            lightNeedUpdate = 2;
         }
     }
 }
