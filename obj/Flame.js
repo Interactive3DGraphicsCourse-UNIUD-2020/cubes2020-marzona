@@ -41,9 +41,9 @@ export class Flame {
 
         // shadow camera properties
         this.pointLight.castShadow = true;
-        this.pointLight.shadow.bias = -0.000045;
-        this.pointLight.shadow.mapSize.width = 1024;
-        this.pointLight.shadow.mapSize.height = 1024;
+        this.pointLight.shadow.bias = -0.007;
+        this.pointLight.shadow.mapSize.width = 512;
+        this.pointLight.shadow.mapSize.height = 512;
 
         // pointLight animation properties
         this.pointLightMinIntensity = 0.5;

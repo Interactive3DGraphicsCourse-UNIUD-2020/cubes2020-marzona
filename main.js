@@ -25,7 +25,7 @@ import { GUI } from './three/examples/jsm/libs/dat.gui.module.js';
 var BLOOM_SCENE = 1;
 var bloomComposer, bloomPass, renderPass, finalPass, finalComposer, darkMaterial, materials;
 var scene, camera, renderer, clearColor, bloomLayer, params, controls, stats, clock, delta;
-var ambientLight, csm, csmHelper, terrain;
+var hemiLight, csm, csmHelper, terrain;
 var flame, flameMesh, bonfire, bonfireMesh;
 var ground, groundGeo, groundMat;
 
@@ -35,28 +35,28 @@ var viewSize = 40; // in world units
 var aspectRatio = window.innerWidth / window.innerHeight;
 var cameraOffset = 10; // used to shift camera on the Y axis
 
-// sky color & ambient light fading
-var lightDirection = (new THREE.Vector3(1, -1.75, 1)).normalize();
+// Lighting setup
 var lightFadeTime = 1.5; // expressed in second
-var alpha = 1.0;
-var alphaUpdate = 1.0 / lightFadeTime; // used for linear interpolation
 var skyColorDay = new THREE.Color( 0.57, 0.88, 1.00); // day sky color
-var skyColorNight = new THREE.Color( 0.09, 0.09, 0.14 ); // night sky color
-// var skyColorDay = new THREE.Color( 0.0, 0.0, 0.0); // day sky color
-// var skyColorNight = new THREE.Color( 0.0, 0.0, 0.0); // night sky color
-var lightNeedUpdate = 0;
+var skyColorNight = new THREE.Color( 0.04,0.04,0.12 ); // night sky color
+var hemiColorGround = new THREE.Color( 1.00, 0.78, 0.50 ); // ground color
+var alpha = 1.0; // alpha value, used for linear interpolation
+var alphaUpdate = 1.0 / lightFadeTime;
+var lightDirection = (new THREE.Vector3(1.0,-1.75,1.0)).normalize();
+var lightMaxIntensity = 0.25;
+var lightMinIntensity = 0.10;
+var hemiMaxIntensity = 0.6;
+var hemiMinIntensity = 0.15;
+var lightsNeedUpdate = 0;
 var clearColor = skyColorDay;
 
-let lights_params = {
-    shadowBias: 0.000001,
+// CSM Params
+let csm_params = {
+    shadowBias: -0.0002,
     lightNear: 1,
-    lightFar: 370,
-    maxFar: 370,
-    margin: 100,
-    ambientMaxIntensity: 0.60,
-    ambientMinIntensity: 0.20,
-    shadowMaxIntensity: 0.60,
-    shadowMinIntensity: 0.20,
+    lightFar: 1000,
+    maxFar: 500,
+    margin: 50,
 };
 
 function Setup() {
@@ -146,43 +146,35 @@ function Setup() {
     clock = new THREE.Clock();
     delta = 0;
 
-    // - - - gui, used to setup shadow cameras
+    // - - - gui, used to setup CSM Properties
     const gui = new GUI();
 
-    gui.add( lights_params, 'maxFar', 0, 500 ).step( 1 ).name( 'shadow far' ).onChange( function ( value ) {
+    gui.add( csm_params, 'maxFar', 1, 5000 ).step( 1 ).name( 'camera far' ).onChange( function ( value ) {
         csm.maxFar = value;
         csm.updateFrustums();
     });
 
-    gui.add( lights_params, 'margin', 1, 5000 ).name( 'light margin' ).onChange( function ( value ) {
+    gui.add( csm_params, 'margin', 0, 500 ).name( 'light margin' ).onChange( function ( value ) {
         csm.lightMargin = value;
         csm.updateFrustums();
     });
 
-    gui.add( lights_params, 'lightNear', 1, 10000 ).name( 'light near' ).onChange( function ( value ) {
-        csm.lightNear = value;
-        csm.updateFrustums();
+    gui.add( csm_params, 'lightNear', -1000, 1000 ).name( 'light near' ).onChange( function ( value ) {
+        for ( var i = 0; i < csm.lights.length; i ++ ) {
+
+            csm.lights[ i ].shadow.camera.near = value;
+            csm.lights[ i ].shadow.camera.updateProjectionMatrix();
+
+        }
     });
 
-    gui.add( lights_params, 'lightFar', 1, 10000 ).name( 'light far' ).onChange( function ( value ) {
-        csm.lightFar = value;
-        csm.updateFrustums();
-    });
+    gui.add( csm_params, 'lightFar', 1, 10000 ).name( 'light far' ).onChange( function ( value ) {
+        for ( var i = 0; i < csm.lights.length; i ++ ) {
 
-    gui.add( lights_params, 'ambientMinIntensity', 0.01, 1.00 ).name( 'amb min' ).onChange( function ( value ) {
-        
-    });
+            csm.lights[ i ].shadow.camera.far = value;
+            csm.lights[ i ].shadow.camera.updateProjectionMatrix();
 
-    gui.add( lights_params, 'ambientMaxIntensity', 0.01, 1.00 ).name( 'amb max' ).onChange( function ( value ) {
-        
-    });
-
-    gui.add( lights_params, 'shadowMinIntensity', 0.01, 1.00 ).name( 'shadow min' ).onChange( function ( value ) {
-        
-    });
-
-    gui.add( lights_params, 'shadowMaxIntensity', 0.01, 1.00 ).name( 'shadow max' ).onChange( function ( value ) {
-        
+        }
     });
   
 }
@@ -192,30 +184,31 @@ function BuildScene() {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFShadowMap; // this seems to give the best results
 
-    // add ambient
-    ambientLight = new THREE.AmbientLight( 0xffffff, lights_params.ambientMaxIntensity );
-	scene.add( ambientLight );
-
-    // add csm
+    // this is basically used as a diretional light - emulates direct sunlight
     csm = new CSM( {
-
 	    cascades: 4,
-	    shadowMapSize: 1024,
+	    shadowMapSize: 2048,
         parent: scene,
         lightDirection: lightDirection,
         camera: camera,
-        mode: 'practical',
-        shadowBias: lights_params.shadowBias,
-        lightNear: lights_params.lightNear,
-        lightFar: lights_params.lightFar,
-        maxFar: lights_params.maxFar,
-        margin: lights_params.margin,
-        lightIntensity: lights_params.shadowMaxIntensity,
+        mode: 'uniform',
+        shadowBias: csm_params.shadowBias,
+        lightNear: csm_params.lightNear,
+        lightFar: csm_params.lightFar,
+        maxFar: csm_params.maxFar,
+        margin: csm_params.margin,
+        lightIntensity: lightMaxIntensity,
     } );
 
+    // this is absolutely broken even in the demo
     csmHelper = new CSMHelper( csm );
     csmHelper.visible = false;
     scene.add( csmHelper );
+
+    // ambient diffuse
+    hemiLight = new THREE.HemisphereLight( skyColorDay, hemiColorGround, hemiMaxIntensity );
+    hemiLight.position.set( 0, 500, 0 );
+    scene.add( hemiLight );
 
     // - - bonfire
     bonfire = new Bonfire(16.0);
@@ -322,23 +315,30 @@ function restoreMaterial( obj ) {
 }
 
 function updateSceneLights( time ) {
-    if ( lightNeedUpdate !== 0 ) {
-        if ( lightNeedUpdate === 1 ) { // day to night
+    if ( lightsNeedUpdate !== 0 ) {
+        if ( lightsNeedUpdate === 1 ) { // day to night
             alpha -= ( time * alphaUpdate);
             if (alpha < 0) {
                 alpha = 0;
-                lightNeedUpdate = 0;
+                lightsNeedUpdate = 0;
             }
         }
-        if ( lightNeedUpdate === 2 ) { // night to day
+        if ( lightsNeedUpdate === 2 ) { // night to day
             alpha += ( time * alphaUpdate);
             if (alpha > 1) {
                 alpha = 1;
-                lightNeedUpdate = 0;
+                lightsNeedUpdate = 0;
             }
         }
-        ambientLight.intensity = lights_params.ambientMinIntensity + (alpha * ( lights_params.ambientMaxIntensity - lights_params.ambientMinIntensity ));
-        csm.lightIntensity = lights_params.shadowMinIntensity + (alpha * ( lights_params.shadowMaxIntensity - lights_params.shadowMinIntensity ));
+        let csmIntensity = lightMinIntensity + (alpha * (  lightMaxIntensity - lightMinIntensity ));
+
+        for ( var i = 0; i < csm.lights.length; i ++ ) {
+
+            csm.lights[ i ].intensity = csmIntensity;
+
+        }
+
+        hemiLight.intensity = hemiMinIntensity + (alpha * (  hemiMaxIntensity - hemiMinIntensity ));
 
         csm.updateFrustums();
         csm.update();
@@ -380,10 +380,10 @@ window.buttonPressHandler = function( parent, sceneElement ) {
     if ( sceneElement == 'sunlight' ) {
         if ( sunlightOn ) {
             sunlightOn = false;
-            lightNeedUpdate = 1;
+            lightsNeedUpdate = 1;
         } else {
             sunlightOn = true;
-            lightNeedUpdate = 2;
+            lightsNeedUpdate = 2;
         }
     }
 }
