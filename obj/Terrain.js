@@ -46,37 +46,25 @@ export class Terrain {
             // set up cube planes
             let matrix = new THREE.Matrix4();
             let pxGeometry = new THREE.PlaneBufferGeometry( self.voxelSize, self.voxelSize );
-            pxGeometry.attributes.uv.array[ 1 ] = 0.5;
-            pxGeometry.attributes.uv.array[ 3 ] = 0.5;
             pxGeometry.rotateY( Math.PI / 2 );
             pxGeometry.translate( self.voxelHalf, 0, 0 );
 
             let nxGeometry = new THREE.PlaneBufferGeometry( self.voxelSize, self.voxelSize );
-            nxGeometry.attributes.uv.array[ 1 ] = 0.5;
-            nxGeometry.attributes.uv.array[ 3 ] = 0.5;
             nxGeometry.rotateY( - Math.PI / 2 );
             nxGeometry.translate( - self.voxelHalf, 0, 0 );
 
             let pyGeometry = new THREE.PlaneBufferGeometry( self.voxelSize, self.voxelSize );
-            pyGeometry.attributes.uv.array[ 5 ] = 0.5;
-            pyGeometry.attributes.uv.array[ 7 ] = 0.5;
             pyGeometry.rotateX( - Math.PI / 2 );
             pyGeometry.translate( 0, self.voxelHalf, 0 );
 
             let nyGeometry = new THREE.PlaneBufferGeometry( self.voxelSize, self.voxelSize );
-            nyGeometry.attributes.uv.array[ 5 ] = 0.5;
-            nyGeometry.attributes.uv.array[ 7 ] = 0.5;
             nyGeometry.rotateX( Math.PI /  2);
             nyGeometry.translate( 0, self.voxelHalf, 0 );
 
             let pzGeometry = new THREE.PlaneBufferGeometry( self.voxelSize, self.voxelSize );
-            pzGeometry.attributes.uv.array[ 1 ] = 0.5;
-            pzGeometry.attributes.uv.array[ 3 ] = 0.5;
             pzGeometry.translate( 0, 0, self.voxelHalf );
 
             let nzGeometry = new THREE.PlaneBufferGeometry( self.voxelSize, self.voxelSize );
-            nzGeometry.attributes.uv.array[ 1 ] = 0.5;
-            nzGeometry.attributes.uv.array[ 3 ] = 0.5;
             nzGeometry.rotateY( Math.PI );
             nzGeometry.translate( 0, 0, - self.voxelHalf );
 
@@ -205,7 +193,7 @@ export class Terrain {
 
                 if ( terrainMaterials[material].length !== 0 ) {
 
-                    let geometryGroup = BufferGeometryUtils.mergeBufferGeometries( terrainMaterials[material] );
+                    let geometryGroup = BufferGeometryUtils.mergeVertices(BufferGeometryUtils.mergeBufferGeometries( terrainMaterials[material] ));
                     let mesh = new THREE.Mesh(geometryGroup, materials[material]);
                     if( material != 'water') {
                         mesh.castShadow = true;
