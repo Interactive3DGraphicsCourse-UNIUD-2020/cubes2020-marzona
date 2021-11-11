@@ -1,22 +1,20 @@
 import * as THREE from '../three/build/three.module.js';
-import * as BufferGeometryUtils from '../three/examples/jsm/utils/BufferGeometryUtils.js';
+import { materials } from './materials.js';
 
 export class Tree {
 
     constructor( scale = 1.0 ) {
         this.scale = scale;
         this.voxelSize = 16;
+        this.init();
     }
 
-    getMesh() {
+    init() {
         let self = this;
         let mesh = new THREE.Object3D();
         let matrix = new THREE.Matrix4();
         let trunk;
         let leaves = [];
-
-        let leavesColor = new THREE.Color('rgb(45,80,40)');
-        let trunkColor = new THREE.Color('rgb(87,64,39)');
 
         // add trunk
         let trunkGeometry = new THREE.BoxBufferGeometry(4,10,4);
@@ -26,36 +24,49 @@ export class Tree {
             0
         );
         trunkGeometry.applyMatrix4( matrix );
-        trunk = new THREE.Mesh( trunkGeometry, new THREE.MeshPhongMaterial({
-            color: trunkColor
-        }));
+        trunk = new THREE.Mesh( trunkGeometry, materials.trunk);
         mesh.add(trunk);
 
         // add leaves
+        let leavesGeometry = new THREE.BoxBufferGeometry();
+        let leavesMaterial = materials.leaves;
+
+        let leavesMesh = new THREE.InstancedMesh( leavesGeometry, leavesMaterial , 4);
+        
+        // scale and translate
         for (let i = 0; i < 4; i++) {
+            
+            let scale = new THREE.Vector3();
+            let quaternion = new THREE.Quaternion();
+            let position = new THREE.Vector3();
+
+            let matrix = new THREE.Matrix4();
+
+            position.x = 0;
+            position.y = 10 + 4 + i * 8;
+            position.z = 0;
+
+            scale.x = 28 - 8 * i;
+            scale.y = 8;
+            scale.z = 28 - 8 * i;
+
             if (i === 3) {
-                let leavesGeometry = new THREE.BoxBufferGeometry(4,6,4);
-                matrix.makeTranslation(
-                    0,
-                    37,
-                    0
-                );
-                leaves.push( leavesGeometry.applyMatrix4( matrix ));
-                break;
+                position.x = 0;
+                position.y = 37;
+                position.z = 0;
+    
+                scale.x = 4;
+                scale.y = 6;
+                scale.z = 4;
+
+                //break;
             }
-            let leavesGeometry = new THREE.BoxBufferGeometry(28 - 8 * i,8,28 - 8 * i);
-            matrix.makeTranslation(
-                0,
-                10 + 4 + i * 8,
-                0
-            );
-            leaves.push( leavesGeometry.applyMatrix4( matrix ));
+
+            matrix = matrix.compose( position, quaternion, scale );
+            leavesMesh.setMatrixAt( i, matrix );
+
         }
 
-        let leavesGroup = BufferGeometryUtils.mergeBufferGeometries( leaves );
-        let leavesMesh = new THREE.Mesh( leavesGroup, new THREE.MeshPhongMaterial({
-            color: leavesColor
-        }));
         mesh.add(leavesMesh);
         mesh.traverse(function (obj) {
             obj.castShadow = true;
@@ -67,7 +78,11 @@ export class Tree {
             1 / self.voxelSize * self.scale,
             1 / self.voxelSize * self.scale
         );
-        return mesh;
+        this.mesh = mesh;
+    }
+
+    getMesh() {
+        return this.mesh.clone();
     }
 
 }

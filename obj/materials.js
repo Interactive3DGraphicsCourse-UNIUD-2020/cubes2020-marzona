@@ -27,6 +27,13 @@ export var materials = {
         blendSrc: THREE.SrcAlphaFactor,
 		blendDst: THREE.OneMinusSrcAlphaFactor,
 		blendEquation: THREE.AddEquation
-    })
-    
+    }),
+    leaves: new THREE.MeshPhongMaterial({
+        color: new THREE.Color('rgb(45,80,40)'),
+        side: THREE.DoubleSide,
+    }),
+    trunk: new THREE.MeshPhongMaterial({
+        color: new THREE.Color('rgb(87,64,39)'),
+        side: THREE.DoubleSide,
+    }),
 };

@@ -143,9 +143,9 @@ function BuildScene() {
     spotLight.castShadow = true;
     spotLight.shadow.mapSize.width = 2048;
     spotLight.shadow.mapSize.height = 2048;
-    spotLight.shadow.blurSamples = 16;
+    spotLight.shadow.blurSamples = 1;
     spotLight.decay = 0.0;
-    spotLight.shadow.bias = -0.0000015;
+    spotLight.shadow.bias = -0.000002;
 
     spotLight.shadow.camera.near = 0.5;
     spotLight.shadow.camera.far = 500;
@@ -157,10 +157,10 @@ function BuildScene() {
     // spotLightHelper.color = new THREE.Color( 0xffffff);
     // scene.add( spotLightHelper );
 
-    const helper = new THREE.CameraHelper( spotLight.shadow.camera );
-    scene.add( helper );
+    // const helper = new THREE.CameraHelper( spotLight.shadow.camera );
+    // scene.add( helper );
 
-    // ambient diffuse
+    // ambient
     hemiLight = new THREE.HemisphereLight( skyColorDay, hemiColorGround, hemiMaxIntensity );
     hemiLight.position.set( 0, 500, 0 );
     scene.add( hemiLight );
@@ -205,6 +205,7 @@ function Update() {
     requestAnimationFrame( Update );
     controls.update();  
     stats.update();
+    console.log(renderer.info);
     Animate();
     Render();
 }
