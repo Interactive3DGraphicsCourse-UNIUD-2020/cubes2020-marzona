@@ -3,7 +3,7 @@
 ![A small preview](photos/showcase.gif)
 ### Author:
 - Marzona Eugenio - 128623
-- [Demo](https://github.com/Interactive3DGraphicsCourse-UNIUD-2020/cubes2020-marzona)
+- [Demo](https://interactive3dgraphicscourse-uniud-2020.github.io/cubes2020-marzona/)
 
 ## A brief description
 The presented scene consists of a simple natural environment containing some procedurally generated vegetation and a small bonfire.
