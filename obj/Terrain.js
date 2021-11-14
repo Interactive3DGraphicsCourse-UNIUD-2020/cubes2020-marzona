@@ -216,54 +216,66 @@ export class Terrain {
                 let seaweed = new Grass(self.voxelSize, 'ocean');
                 let grass = new Grass(self.voxelSize, 'land');
 
-                for ( let i = 0, l = vegetation.tree.length; i < l; i++ ) {
-                    let xpos = vegetation.tree[i].x;
-                    let zpos = vegetation.tree[i].z;
-                    let ypos = self.getY(xpos, zpos, heightData, worldWidth);
-                    let obj = tree.getMesh();
-                    obj.position.set(
-                        xpos * self.voxelSize - worldHalfWidth * self.voxelSize,
-                        ypos * self.voxelSize + self.voxelSize / 2,
-                        zpos * self.voxelSize - worldHalfDepth * self.voxelSize
-                    );
-                    self.terrain.add( obj );
-                }
+                // let grassPos, seaweedPos, treePos, flowerPos = [];
+                // setup transform matrices placeholders
+                let treePos = [];
+                let flowerPos = [];
+                let seaweedPos = [];
+                let grassPos = [];
 
+                // setup terrain placement positions
+                // 1. Trees
+                for ( let i = 0, l = vegetation.tree.length; i < l; i++ ) {
+                    let xpos = vegetation.tree[i].x * self.voxelSize - worldHalfWidth * self.voxelSize;
+                    let zpos = vegetation.tree[i].z * self.voxelSize - worldHalfDepth * self.voxelSize;
+                    let ypos = self.getY(vegetation.tree[i].x, vegetation.tree[i].z, heightData, worldWidth) * self.voxelSize + self.voxelSize / 2;
+
+                    treePos.push( (new THREE.Matrix4()).makeTranslation(
+                        xpos,
+                        ypos,
+                        zpos
+                    ) );
+                }
+                self.terrain.add( tree.getMesh( treePos ));
+
+                // 2. flowers
+                for ( let i = 0, l = vegetation.flower.length; i < l; i++ ) {
+                    let xpos = vegetation.flower[i].x * self.voxelSize - worldHalfWidth * self.voxelSize;
+                    let zpos = vegetation.flower[i].z * self.voxelSize - worldHalfDepth * self.voxelSize;
+                    let ypos = self.getY(vegetation.flower[i].x, vegetation.flower[i].z, heightData, worldWidth) * self.voxelSize + self.voxelSize / 2;
+
+                    flowerPos.push( (new THREE.Matrix4()).makeTranslation(
+                        xpos,
+                        ypos,
+                        zpos
+                    ) );
+                }
+                self.terrain.add( flower.getMesh( flowerPos ));
+
+                // 3. grass
                 for ( let i = 0, l = vegetation.grass.length; i < l; i++ ) {
-                    let xpos = vegetation.grass[i].x;
-                    let zpos = vegetation.grass[i].z;
-                    let ypos = self.getY(xpos, zpos, heightData, worldWidth);
-                    if ( ypos < self.seaLevel) {
-                        let obj = seaweed.getMesh();
-                        obj.position.set(
-                            xpos * self.voxelSize - worldHalfWidth * self.voxelSize,
-                            ypos * self.voxelSize + self.voxelSize / 2,
-                            zpos * self.voxelSize - worldHalfDepth * self.voxelSize
-                        );
-                        self.terrain.add( obj );
+                    let terrainHeight = self.getY(vegetation.grass[i].x, vegetation.grass[i].z, heightData, worldWidth);
+                    let xpos = vegetation.grass[i].x * self.voxelSize - worldHalfWidth * self.voxelSize;
+                    let zpos = vegetation.grass[i].z * self.voxelSize - worldHalfDepth * self.voxelSize;
+                    let ypos = terrainHeight * self.voxelSize + self.voxelSize / 2;
+
+                    if ( terrainHeight < self.seaLevel) {
+                        seaweedPos.push( (new THREE.Matrix4()).makeTranslation(
+                            xpos,
+                            ypos,
+                            zpos
+                        ) );
+
                     } else {
-                        let obj = grass.getMesh();
-                        obj.position.set(
-                            xpos * self.voxelSize - worldHalfWidth * self.voxelSize,
-                            ypos * self.voxelSize + self.voxelSize / 2,
-                            zpos * self.voxelSize - worldHalfDepth * self.voxelSize
-                        );
-                        self.terrain.add( obj );
+                        grassPos.push( (new THREE.Matrix4()).makeTranslation(
+                            xpos,
+                            ypos,
+                            zpos
+                        ) );
                     }
                 }
-
-                for ( let i = 0, l = vegetation.flower.length; i < l; i++ ) {
-                    let xpos = vegetation.flower[i].x;
-                    let zpos = vegetation.flower[i].z;
-                    let ypos = self.getY(xpos, zpos, heightData, worldWidth);
-                    let obj = flower.getMesh();
-                    obj.position.set(
-                        xpos * self.voxelSize - worldHalfWidth * self.voxelSize,
-                        ypos * self.voxelSize + self.voxelSize / 2,
-                        zpos * self.voxelSize - worldHalfDepth * self.voxelSize
-                    );
-                    self.terrain.add( obj );
-                }
+                self.terrain.add( seaweed.getMesh( seaweedPos ));
+                self.terrain.add( grass.getMesh( grassPos ));
 
             }
 

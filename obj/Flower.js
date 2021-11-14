@@ -1,93 +1,125 @@
 import * as THREE from '../three/build/three.module.js';
-import { randInt } from './Helpers.js'
+import { materials } from './materials.js';
 
 export class Flower {
 
     constructor( scale = 1.0 ) {
         this.scale = scale;
         this.voxelSize = 16;
-        this.init();
+        this.petalsNumber = 4;
     }
 
-    init() {
+    getMesh( placementMat ) {
         let self = this;
-        let meshList = [];
+        let mesh = new THREE.Object3D();
 
         let geometry = new THREE.BoxBufferGeometry(1,1,1);
 
-        let petalColors = [
-            new THREE.Color('rgb(255,108,0)'),
-            new THREE.Color('rgb(255,159,0)'),
-            new THREE.Color('rgb(249,220,248)'),
-            new THREE.Color('rgb(204,77,65)')
-        ];
-        let stemColor = new THREE.Color('rgb(255,255,127)'); // pale yellow
+        let stemMaterial = materials.flowerStem;
+        let petalsMaterial = materials.flowerPetals;
 
-        for(let k = 0; k < petalColors.length; k++) {
-            let mesh = new THREE.Object3D();
+        let stemObjMat = [];
+        let petalsObjMat = [];
 
-            // add stem
-            let stemMesh = new THREE.Mesh( geometry, new THREE.MeshPhongMaterial({
-                color: stemColor
-            }));
+        let stemSceneMat = [];
+        let petalsSceneMat = [];
 
-            stemMesh.scale.set(2,2,2);
-            stemMesh.position.set(0,1,0);
-            mesh.add(stemMesh);
+        // set stem object transform
+        stemObjMat.push( (new THREE.Matrix4()).compose(
+            new THREE.Vector3(0,1,0),
+            new THREE.Quaternion(),
+            new THREE.Vector3(2,2,2)
+        ));
 
-            // add petals
-            let petalMesh = new THREE.InstancedMesh(
-                geometry,
-                new THREE.MeshPhongMaterial({
-                    color: petalColors[k]
-                }),
-                4,
-            );
+        // set petal object transforms
+        for( let j = 0; j < self.petalsNumber; j++) {
 
-            for (let j = 0; j < 4; j++) {
-                let scale = new THREE.Vector3();
-                let quaternion = new THREE.Quaternion();
-                let position = new THREE.Vector3();
+            let scale = new THREE.Vector3();
+            let quaternion = new THREE.Quaternion();
+            let position = new THREE.Vector3();
 
-                let matrix = new THREE.Matrix4();
+            let matrix = new THREE.Matrix4();
 
-                position.x = 2 * ( j % 2 ? -1 : 1 );
-                if ( j > 1 ) {
-                    position.x = 0;
-                }
-                position.y = 0.5;
-                position.z = 2 * ( j % 2 ? -1 : 1 );
-                if ( j < 2 ) {
-                    position.z = 0;
-                }
-
-                scale.x = 2;
-                scale.y = 1;
-                scale.z = 2;
-
-                matrix = matrix.compose( position, quaternion, scale );
-                petalMesh.setMatrixAt( j, matrix );
+            position.x = 2 * ( j % 2 ? -1 : 1 );
+            if ( j > 1 ) {
+                position.x = 0;
+            }
+            position.y = 0.5;
+            position.z = 2 * ( j % 2 ? -1 : 1 );
+            if ( j < 2 ) {
+                position.z = 0;
             }
 
-            mesh.add(petalMesh);
-            mesh.scale.set(
-                1 / self.voxelSize * self.scale,
-                1 / self.voxelSize * self.scale,
-                1 / self.voxelSize * self.scale
-            );    
-            mesh.traverse(function (obj) {
-                obj.castShadow = false;
-                obj.receiveShadow = true;
-            });
-            meshList[k] = mesh;
-        }        
+            scale.x = 2;
+            scale.y = 1;
+            scale.z = 2;
 
-        this.meshList = meshList;
-    }
+            matrix = matrix.compose( position, quaternion, scale );
+            petalsObjMat.push( (new THREE.Matrix4()).copy( matrix ) );
 
-    getMesh() {
-        let index = randInt(0, this.meshList.length - 1);
-        return this.meshList[index].clone();
+        }
+
+        // set object x scene matrices ( scenetransform )
+        for (let f = 0; f < placementMat.length; f++) {
+
+            // stems
+            for (let a = 0; a < stemObjMat.length; a++) {
+                stemSceneMat.push( (new THREE.Matrix4()).multiplyMatrices( placementMat[f], stemObjMat[a] ));
+            }
+
+            // petals
+            for (let b = 0; b < petalsObjMat.length; b++) {
+                petalsSceneMat.push( (new THREE.Matrix4()).multiplyMatrices( placementMat[f], petalsObjMat[b] ));
+            }
+
+        }
+
+        // build and place instanced meshes
+        let stemMesh = new THREE.InstancedMesh( geometry, stemMaterial, stemSceneMat.length );
+
+        for( let h = 0; h < stemSceneMat.length; h++ ) {
+            stemMesh.setMatrixAt(h, stemSceneMat[h]);
+        }
+
+        mesh.add( stemMesh );
+
+        // ... and petals, with randmaterials - this is a pretty poor solution but runs only on scene init
+        let flowersPerGroup = ~~( placementMat.length / petalsMaterial.length );
+        let petalsIndex = 0;
+
+        for(let r = 0; r < petalsMaterial.length; r++) {
+
+            if( r == ( petalsMaterial.length - 1) ) {
+                flowersPerGroup = flowersPerGroup + ( placementMat.length - ( flowersPerGroup * petalsMaterial.length ) );
+            }
+
+            let units = self.petalsNumber * flowersPerGroup;
+            const petalsMesh = new THREE.InstancedMesh( geometry, petalsMaterial[r], units );
+            let index = 0;
+
+            for(let v = petalsIndex; v < (petalsIndex + units); v++) {
+                petalsMesh.setMatrixAt( index, petalsSceneMat[v]);
+                index++;
+            }
+
+            petalsIndex += units;
+            mesh.add( petalsMesh );
+        }
+        
+        
+        mesh.scale.set(
+            1 / self.voxelSize * self.scale,
+            1 / self.voxelSize * self.scale,
+            1 / self.voxelSize * self.scale
+        );
+
+        mesh.traverse(function (obj) {
+            obj.castShadow = false;
+            obj.receiveShadow = true;
+        });
+        
+        return mesh;
+
     }
 
 }

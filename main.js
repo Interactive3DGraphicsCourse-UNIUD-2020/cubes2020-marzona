@@ -205,7 +205,6 @@ function Update() {
     requestAnimationFrame( Update );
     controls.update();  
     stats.update();
-    console.log(renderer.info);
     Animate();
     Render();
 }

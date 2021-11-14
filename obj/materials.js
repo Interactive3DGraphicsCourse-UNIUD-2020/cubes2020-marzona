@@ -36,4 +36,21 @@ export var materials = {
         color: new THREE.Color('rgb(87,64,39)'),
         side: THREE.DoubleSide,
     }),
+    flowerStem: new THREE.MeshPhongMaterial({
+        color: new THREE.Color('rgb(255,255,127)'),
+    }),
+    flowerPetals: [
+        new THREE.MeshPhongMaterial({
+            color: new THREE.Color('rgb(255,108,0)'),
+        }),
+        new THREE.MeshPhongMaterial({
+            color: new THREE.Color('rgb(255,159,0)'),
+        }),
+        new THREE.MeshPhongMaterial({
+            color: new THREE.Color('rgb(249,220,248)'),
+        }),
+        new THREE.MeshPhongMaterial({
+            color: new THREE.Color('rgb(204,77,65)'),
+        }),
+    ],
 };
