@@ -26,12 +26,11 @@ button {
     border: 0.15em solid #ffffff;
     display:inline-block;
     font-size: 12pt;
-    padding-top: 0.25em;
-    padding-bottom: 0.25em;
+    padding: 0.3em 0.4em 0.3em 0.4em;
     text-decoration:none;
     font-family: monospace;
     text-align: center;
-    width: 3em;
+    min-width: 3.5em;
     border-radius: 4px;
 }
 
