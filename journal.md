@@ -47,8 +47,20 @@ Le due luci poste nella scena che generano ombra sono la luce direzionale e quel
 - L'aggiunta alla scena di un 'cavaliere' in voxel-art con il compito di accendere il fuoco era stata programmata, un modello è stato realizzato in Magica Voxel, tuttavia l'animazione non è ancora stata realizzata
 - La generazione della vegetazione potrebbe essere ottimizzata utilizzando instanced meshes
 
-## Aggiornamenti - 7/8 Novembre 2021
+## Aggiornamenti - 7,8 Novembre 2021
 - Rivisti velocemente i moduli del progetto. Ora l'installazione di threejs utilizzata è aggiornata (r134) ed è locale.
-- Effettuati alcuni tentativi per risolvere i problemi di performance.
+- Effettuati alcuni primi tentativi per risolvere i problemi di performance.
 
 Ho provato a prendere qualche idea dal libro **Lighting & Rendering - Jeremy Birn** per rivedere il sistema di illuminazione della scena. Ho fatto sia un tentativo di integrare la tecnica "Cascaded Shadow Maps", che a rigor di logica dovrebbe essere la scelta migliore per simulare la luce diretta del sole su una scena come quella realizzata, che una prova con una singola Spotlight per illuminare l'intera scena.
+
+
+## Aggiornamenti - 12,14 Novembre 2021
+Dopo aver constato che il geometry stage era probabilmente la fase della pipeline più pesante per questa scena, ho deciso di rivedere gli script di generazione e placing delle geometrie (terreno e vegetazione).
+
+Cercando di non stravolgere troppo la struttura del progetto, ho riscritto le classi che generano gli oggetti della scena utilizzando la classe _InstancedMesh_.
+
+Questo tipo di soluzione ha ridotto drasticamente la memoria utilizzata (passando da circa 280 geometrie nella scena a 11) ed aumentato notevolmente le performance.
+
+Sul branch "csm" ho cercato di trovare una serie di parametri per le shadow map a cascata che funzionasse bene per tutte le posizioni di camera.
+
+Non sono putroppo riuscito ad ottenere una soluzione soddisfacente e quindi lascio sul master branch la soluzione singola Spotlight + Hemilight. La risoluzione della shadowmap sulla Spotlight è stata impostata a 2K; questo mi sembra al momento il compromesso migliore, considerato che non tutti gli smartphone supportano le texture a 4K.
