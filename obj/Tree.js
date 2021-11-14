@@ -1,5 +1,5 @@
 import * as THREE from '../three/build/three.module.js';
-import * as BufferGeometryUtils from '../three/examples/jsm/utils/BufferGeometryUtils.js';
+import { materials } from './materials.js';
 
 export class Tree {
 
@@ -8,66 +8,104 @@ export class Tree {
         this.voxelSize = 16;
     }
 
-    getMesh() {
+    getMesh ( placementMat ) {
         let self = this;
         let mesh = new THREE.Object3D();
-        let matrix = new THREE.Matrix4();
-        let trunk;
-        let leaves = [];
 
-        let leavesColor = new THREE.Color('rgb(45,80,40)');
-        let trunkColor = new THREE.Color('rgb(87,64,39)');
-
-        // add trunk
         let trunkGeometry = new THREE.BoxBufferGeometry(4,10,4);
-        matrix.makeTranslation(
+        let leavesGeometry = new THREE.BoxBufferGeometry(1,1,1);
+
+        let leavesMaterial = materials.leaves;
+        let trunkMaterial = materials.trunk;
+
+        let trunkObjMat = [];
+        let leavesObjMat = [];
+
+        let trunkSceneMat = [];
+        let leavesSceneMat = [];
+
+        // set trunk object transform
+        trunkObjMat.push( (new THREE.Matrix4()).makeTranslation(
             0,
             5,
             0
-        );
-        trunkGeometry.applyMatrix4( matrix );
-        trunk = new THREE.Mesh( trunkGeometry, new THREE.MeshPhongMaterial({
-            color: trunkColor
-        }));
-        mesh.add(trunk);
+        ));
 
-        // add leaves
+        // set leaves object transform
         for (let i = 0; i < 4; i++) {
+            
+            let scale = new THREE.Vector3();
+            let quaternion = new THREE.Quaternion();
+            let position = new THREE.Vector3();
+
+            let matrix = new THREE.Matrix4();
+
+            position.x = 0;
+            position.y = 10 + 4 + i * 8;
+            position.z = 0;
+
+            scale.x = 28 - 8 * i;
+            scale.y = 8;
+            scale.z = 28 - 8 * i;
+
             if (i === 3) {
-                let leavesGeometry = new THREE.BoxBufferGeometry(4,6,4);
-                matrix.makeTranslation(
-                    0,
-                    37,
-                    0
-                );
-                leaves.push( leavesGeometry.applyMatrix4( matrix ));
-                break;
+
+                position.x = 0;
+                position.y = 37;
+                position.z = 0;
+    
+                scale.x = 4;
+                scale.y = 6;
+                scale.z = 4;
+
             }
-            let leavesGeometry = new THREE.BoxBufferGeometry(28 - 8 * i,8,28 - 8 * i);
-            matrix.makeTranslation(
-                0,
-                10 + 4 + i * 8,
-                0
-            );
-            leaves.push( leavesGeometry.applyMatrix4( matrix ));
+
+            matrix = matrix.compose( position, quaternion, scale );
+            leavesObjMat.push( matrix );
         }
 
-        let leavesGroup = BufferGeometryUtils.mergeBufferGeometries( leaves );
-        let leavesMesh = new THREE.Mesh( leavesGroup, new THREE.MeshPhongMaterial({
-            color: leavesColor
-        }));
+        // set object x scene matrices ( scenetransform )
+        for (let k = 0; k < placementMat.length; k++) {
+
+            // trunks
+            for (let a = 0; a < trunkObjMat.length; a++) {
+                trunkSceneMat.push( (new THREE.Matrix4()).multiplyMatrices( placementMat[k], trunkObjMat[a] ));
+            }
+
+            // leaves
+            for (let b = 0; b < leavesObjMat.length; b++) {
+                leavesSceneMat.push( (new THREE.Matrix4()).multiplyMatrices( placementMat[k], leavesObjMat[b] ));
+            }
+        }
+
+        // build and place instanced meshes
+        let trunkMesh = new THREE.InstancedMesh( trunkGeometry, trunkMaterial, trunkSceneMat.length );
+        let leavesMesh = new THREE.InstancedMesh( leavesGeometry, leavesMaterial, leavesSceneMat.length );
+
+        for( let j = 0; j < trunkSceneMat.length; j++ ) {
+            trunkMesh.setMatrixAt(j, trunkSceneMat[j]);
+        }
+
+        for( let g = 0; g < leavesSceneMat.length; g++ ) {
+            leavesMesh.setMatrixAt(g, leavesSceneMat[g]);
+        }
+
+        mesh.add(trunkMesh);
         mesh.add(leavesMesh);
-        mesh.traverse(function (obj) {
-            obj.castShadow = true;
-            obj.receiveShadow = true;
-        });
 
         mesh.scale.set(
             1 / self.voxelSize * self.scale,
             1 / self.voxelSize * self.scale,
             1 / self.voxelSize * self.scale
         );
+
+        mesh.traverse(function (obj) {
+            obj.castShadow = true;
+            obj.receiveShadow = true;
+        });
+        
         return mesh;
+
     }
 
 }

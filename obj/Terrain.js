@@ -1,5 +1,4 @@
 import * as THREE from '../three/build/three.module.js';
-import * as BufferGeometryUtils from '../three/examples/jsm/utils/BufferGeometryUtils.js';
 import { materials } from './materials.js';
 import { Flower } from './Flower.js';
 import { Tree } from './Tree.js';
@@ -33,63 +32,10 @@ export class Terrain {
         let loader = new THREE.ImageLoader();
         loader.load(self.image, function (image) {
 
+            // get terrain size and heighdata from loaded texture
             let heightData, worldWidth, worldDepth, size;
             let worldHalfWidth, worldHalfDepth;
-            let terrainMaterials = {
-                'grass' : [],
-                'stone' : [],
-                'sand' : [],
-                'dirt' : [],
-                'water' : []
-            };
 
-            // set up cube planes
-            let matrix = new THREE.Matrix4();
-            let pxGeometry = new THREE.PlaneBufferGeometry( self.voxelSize, self.voxelSize );
-            pxGeometry.attributes.uv.array[ 1 ] = 0.5;
-            pxGeometry.attributes.uv.array[ 3 ] = 0.5;
-            pxGeometry.rotateY( Math.PI / 2 );
-            pxGeometry.translate( self.voxelHalf, 0, 0 );
-
-            let nxGeometry = new THREE.PlaneBufferGeometry( self.voxelSize, self.voxelSize );
-            nxGeometry.attributes.uv.array[ 1 ] = 0.5;
-            nxGeometry.attributes.uv.array[ 3 ] = 0.5;
-            nxGeometry.rotateY( - Math.PI / 2 );
-            nxGeometry.translate( - self.voxelHalf, 0, 0 );
-
-            let pyGeometry = new THREE.PlaneBufferGeometry( self.voxelSize, self.voxelSize );
-            pyGeometry.attributes.uv.array[ 5 ] = 0.5;
-            pyGeometry.attributes.uv.array[ 7 ] = 0.5;
-            pyGeometry.rotateX( - Math.PI / 2 );
-            pyGeometry.translate( 0, self.voxelHalf, 0 );
-
-            let nyGeometry = new THREE.PlaneBufferGeometry( self.voxelSize, self.voxelSize );
-            nyGeometry.attributes.uv.array[ 5 ] = 0.5;
-            nyGeometry.attributes.uv.array[ 7 ] = 0.5;
-            nyGeometry.rotateX( Math.PI /  2);
-            nyGeometry.translate( 0, self.voxelHalf, 0 );
-
-            let pzGeometry = new THREE.PlaneBufferGeometry( self.voxelSize, self.voxelSize );
-            pzGeometry.attributes.uv.array[ 1 ] = 0.5;
-            pzGeometry.attributes.uv.array[ 3 ] = 0.5;
-            pzGeometry.translate( 0, 0, self.voxelHalf );
-
-            let nzGeometry = new THREE.PlaneBufferGeometry( self.voxelSize, self.voxelSize );
-            nzGeometry.attributes.uv.array[ 1 ] = 0.5;
-            nzGeometry.attributes.uv.array[ 3 ] = 0.5;
-            nzGeometry.rotateY( Math.PI );
-            nzGeometry.translate( 0, 0, - self.voxelHalf );
-
-            let cubeGeometry = {
-                'top': pyGeometry,
-                'bottom': nyGeometry,
-                'left': nxGeometry,
-                'right': pxGeometry,
-                'far': pzGeometry,
-                'near': nzGeometry
-            };
-
-            // get terrain size and heighdata from loaded texture
             worldWidth = image.width;
             worldDepth = image.height;
             worldHalfWidth = ~~(worldWidth / 2);
@@ -97,9 +43,53 @@ export class Terrain {
             size = worldWidth * worldDepth;
 
             heightData = self.getHeightData( image );
+
+            let terrainMat4 = {
+                'grass' : [],
+                'stone' : [],
+                'sand' : [],
+                'dirt' : [],
+                'water' : []
+            };
+            let geometry = new THREE.PlaneBufferGeometry( self.voxelSize, self.voxelSize );
+
+            // setup tile transformation matrices
+            let tileMat4 = {
+                'top': (new THREE.Matrix4()).compose(
+                    new THREE.Vector3(0, self.voxelHalf, 0),
+                    (new THREE.Quaternion()).setFromEuler(new THREE.Euler(-Math.PI/2,0,0)),
+                    new THREE.Vector3(1,1,1)
+                ),
+                'bottom': (new THREE.Matrix4()).compose(
+                    new THREE.Vector3(0, -self.voxelHalf, 0),
+                    (new THREE.Quaternion()).setFromEuler(new THREE.Euler(Math.PI/2,0,0)),
+                    new THREE.Vector3(1,1,1)
+                ),
+                'left': (new THREE.Matrix4()).compose(
+                    new THREE.Vector3(-self.voxelHalf, 0, 0),
+                    (new THREE.Quaternion()).setFromEuler(new THREE.Euler(0,-Math.PI/2,0)),
+                    new THREE.Vector3(1,1,1)
+                ),
+                'right': (new THREE.Matrix4()).compose(
+                    new THREE.Vector3(self.voxelHalf, 0, 0),
+                    (new THREE.Quaternion()).setFromEuler(new THREE.Euler(0,Math.PI/2,0)),
+                    new THREE.Vector3(1,1,1)
+                ),
+                'far': (new THREE.Matrix4()).compose(
+                    new THREE.Vector3(0, 0, self.voxelHalf),
+                    (new THREE.Quaternion()).setFromEuler(new THREE.Euler(0,0,0)),
+                    new THREE.Vector3(1,1,1)
+                ),
+                'near': (new THREE.Matrix4()).compose(
+                    new THREE.Vector3(0, 0, -self.voxelHalf),
+                    (new THREE.Quaternion()).setFromEuler(new THREE.Euler(0,Math.PI,0)),
+                    new THREE.Vector3(1,1,1)
+                ),
+            }
     
             for (let i = 0; i < size; i++) {
 
+                let matrix = new THREE.Matrix4();
                 let xpos = i % worldWidth;
                 let zpos = ~~(i / worldDepth);
                 let ypos = self.getY(xpos, zpos, heightData, worldWidth);
@@ -110,14 +100,14 @@ export class Terrain {
                     zpos * self.voxelSize - worldHalfDepth * self.voxelSize
                 );
 
-                // get neighbor cebes's heighdata
+                // get neighbor tiles heighdata
                 let neighbors = self.getNeighbors( xpos, zpos, heightData, worldWidth, worldDepth );
 
-                // push top plane for surface layer
+                // push top plane
                 if ( ypos > self.sandBlocks ) {
-                    terrainMaterials['grass'].push( cubeGeometry['top'].clone().applyMatrix4( matrix ) );
+                    terrainMat4['grass'].push( (new THREE.Matrix4()).multiplyMatrices( matrix, tileMat4['top'] ) );
                 } else {
-                    terrainMaterials['sand'].push( cubeGeometry['top'].clone().applyMatrix4( matrix ) );
+                    terrainMat4['sand'].push( (new THREE.Matrix4()).multiplyMatrices( matrix, tileMat4['top'] ) );
                 }
 
                 // push top plane for water layer
@@ -127,7 +117,7 @@ export class Terrain {
                         self.seaLevel * self.voxelSize,
                         zpos * self.voxelSize - worldHalfDepth * self.voxelSize
                     );
-                    terrainMaterials['water'].push( cubeGeometry['top'].clone().applyMatrix4( matrix ) );
+                    terrainMat4['water'].push( (new THREE.Matrix4()).multiplyMatrices( matrix, tileMat4['top'] ) );
                 }
                 
                 // left, right, near and far
@@ -146,17 +136,17 @@ export class Terrain {
                         // push side planes based on height value
                         if ( curHeight == ypos ) {
                             if ( curHeight > self.sandBlocks ) {
-                                terrainMaterials['grass'].push( cubeGeometry[direction].clone().applyMatrix4( matrix ) );
+                                terrainMat4['grass'].push( (new THREE.Matrix4()).multiplyMatrices( matrix, tileMat4[direction] ) );
                             } else {
-                                terrainMaterials['sand'].push( cubeGeometry[direction].clone().applyMatrix4( matrix ) );
+                                terrainMat4['sand'].push( (new THREE.Matrix4()).multiplyMatrices( matrix, tileMat4[direction] ) );
                             }
                         }
 
                         if ( curHeight < ypos ) {
                             if ( curHeight >= (ypos - self.dirtBlocks ) ) {
-                                terrainMaterials['dirt'].push( cubeGeometry[direction].clone().applyMatrix4( matrix ) );
+                                terrainMat4['dirt'].push( (new THREE.Matrix4()).multiplyMatrices( matrix, tileMat4[direction] ) );
                             } else {
-                                terrainMaterials['stone'].push( cubeGeometry[direction].clone().applyMatrix4( matrix ) );
+                                terrainMat4['stone'].push( (new THREE.Matrix4()).multiplyMatrices( matrix, tileMat4[direction] ) );
                             }
                         }
 
@@ -178,19 +168,19 @@ export class Terrain {
                         );
 
                         if ( xpos === 0 ) {
-                            terrainMaterials['water'].push( cubeGeometry['left'].clone().applyMatrix4( matrix ) );
+                            terrainMat4['water'].push( (new THREE.Matrix4()).multiplyMatrices( matrix, tileMat4['left'] ) );
                         }
 
                         if ( zpos === 0 ) {
-                            terrainMaterials['water'].push( cubeGeometry['near'].clone().applyMatrix4( matrix ) );
+                            terrainMat4['water'].push( (new THREE.Matrix4()).multiplyMatrices( matrix, tileMat4['near'] ) );
                         }
 
                         if ( xpos === (worldWidth - 1) ) {
-                            terrainMaterials['water'].push( cubeGeometry['right'].clone().applyMatrix4( matrix ) );
+                            terrainMat4['water'].push( (new THREE.Matrix4()).multiplyMatrices( matrix, tileMat4['right'] ) );
                         }
 
                         if ( zpos === (worldDepth - 1) ) {
-                            terrainMaterials['water'].push( cubeGeometry['far'].clone().applyMatrix4( matrix ) );
+                            terrainMat4['water'].push( (new THREE.Matrix4()).multiplyMatrices( matrix, tileMat4['far'] ) );
                         }
 
                         curHeight--;
@@ -200,22 +190,22 @@ export class Terrain {
         
             }
             
-            // build terrain meshes
-            for (let material in terrainMaterials) {
+            // build terrain meshes, using instancing
+            for (let mat in terrainMat4) {
 
-                if ( terrainMaterials[material].length !== 0 ) {
+                if ( terrainMat4[mat].length !== 0 ) {
 
-                    let geometryGroup = BufferGeometryUtils.mergeBufferGeometries( terrainMaterials[material] );
-                    let mesh = new THREE.Mesh(geometryGroup, materials[material]);
-                    if( material != 'water') {
-                        mesh.castShadow = true;
-                        mesh.receiveShadow = true;
+                    let mesh = new THREE.InstancedMesh( geometry, materials[mat], terrainMat4[mat].length);
+
+                    for ( let j = 0; j < terrainMat4[mat].length; j++) {
+                        mesh.setMatrixAt( j, terrainMat4[mat][j]);
                     }
 
+                    mesh.castShadow = true;
+                    mesh.receiveShadow = true;
+
                     self.terrain.add(mesh);
-
                 }
-
             }
 
             // add vegetation if supplied
@@ -226,54 +216,66 @@ export class Terrain {
                 let seaweed = new Grass(self.voxelSize, 'ocean');
                 let grass = new Grass(self.voxelSize, 'land');
 
-                for ( let i = 0, l = vegetation.tree.length; i < l; i++ ) {
-                    let xpos = vegetation.tree[i].x;
-                    let zpos = vegetation.tree[i].z;
-                    let ypos = self.getY(xpos, zpos, heightData, worldWidth);
-                    let obj = tree.getMesh();
-                    obj.position.set(
-                        xpos * self.voxelSize - worldHalfWidth * self.voxelSize,
-                        ypos * self.voxelSize + self.voxelSize / 2,
-                        zpos * self.voxelSize - worldHalfDepth * self.voxelSize
-                    );
-                    self.terrain.add( obj );
-                }
+                // let grassPos, seaweedPos, treePos, flowerPos = [];
+                // setup transform matrices placeholders
+                let treePos = [];
+                let flowerPos = [];
+                let seaweedPos = [];
+                let grassPos = [];
 
+                // setup terrain placement positions
+                // 1. Trees
+                for ( let i = 0, l = vegetation.tree.length; i < l; i++ ) {
+                    let xpos = vegetation.tree[i].x * self.voxelSize - worldHalfWidth * self.voxelSize;
+                    let zpos = vegetation.tree[i].z * self.voxelSize - worldHalfDepth * self.voxelSize;
+                    let ypos = self.getY(vegetation.tree[i].x, vegetation.tree[i].z, heightData, worldWidth) * self.voxelSize + self.voxelSize / 2;
+
+                    treePos.push( (new THREE.Matrix4()).makeTranslation(
+                        xpos,
+                        ypos,
+                        zpos
+                    ) );
+                }
+                self.terrain.add( tree.getMesh( treePos ));
+
+                // 2. flowers
+                for ( let i = 0, l = vegetation.flower.length; i < l; i++ ) {
+                    let xpos = vegetation.flower[i].x * self.voxelSize - worldHalfWidth * self.voxelSize;
+                    let zpos = vegetation.flower[i].z * self.voxelSize - worldHalfDepth * self.voxelSize;
+                    let ypos = self.getY(vegetation.flower[i].x, vegetation.flower[i].z, heightData, worldWidth) * self.voxelSize + self.voxelSize / 2;
+
+                    flowerPos.push( (new THREE.Matrix4()).makeTranslation(
+                        xpos,
+                        ypos,
+                        zpos
+                    ) );
+                }
+                self.terrain.add( flower.getMesh( flowerPos ));
+
+                // 3. grass
                 for ( let i = 0, l = vegetation.grass.length; i < l; i++ ) {
-                    let xpos = vegetation.grass[i].x;
-                    let zpos = vegetation.grass[i].z;
-                    let ypos = self.getY(xpos, zpos, heightData, worldWidth);
-                    if ( ypos < self.seaLevel) {
-                        let obj = seaweed.getMesh();
-                        obj.position.set(
-                            xpos * self.voxelSize - worldHalfWidth * self.voxelSize,
-                            ypos * self.voxelSize + self.voxelSize / 2,
-                            zpos * self.voxelSize - worldHalfDepth * self.voxelSize
-                        );
-                        self.terrain.add( obj );
+                    let terrainHeight = self.getY(vegetation.grass[i].x, vegetation.grass[i].z, heightData, worldWidth);
+                    let xpos = vegetation.grass[i].x * self.voxelSize - worldHalfWidth * self.voxelSize;
+                    let zpos = vegetation.grass[i].z * self.voxelSize - worldHalfDepth * self.voxelSize;
+                    let ypos = terrainHeight * self.voxelSize + self.voxelSize / 2;
+
+                    if ( terrainHeight < self.seaLevel) {
+                        seaweedPos.push( (new THREE.Matrix4()).makeTranslation(
+                            xpos,
+                            ypos,
+                            zpos
+                        ) );
+
                     } else {
-                        let obj = grass.getMesh();
-                        obj.position.set(
-                            xpos * self.voxelSize - worldHalfWidth * self.voxelSize,
-                            ypos * self.voxelSize + self.voxelSize / 2,
-                            zpos * self.voxelSize - worldHalfDepth * self.voxelSize
-                        );
-                        self.terrain.add( obj );
+                        grassPos.push( (new THREE.Matrix4()).makeTranslation(
+                            xpos,
+                            ypos,
+                            zpos
+                        ) );
                     }
                 }
-
-                for ( let i = 0, l = vegetation.flower.length; i < l; i++ ) {
-                    let xpos = vegetation.flower[i].x;
-                    let zpos = vegetation.flower[i].z;
-                    let ypos = self.getY(xpos, zpos, heightData, worldWidth);
-                    let obj = flower.getMesh();
-                    obj.position.set(
-                        xpos * self.voxelSize - worldHalfWidth * self.voxelSize,
-                        ypos * self.voxelSize + self.voxelSize / 2,
-                        zpos * self.voxelSize - worldHalfDepth * self.voxelSize
-                    );
-                    self.terrain.add( obj );
-                }
+                self.terrain.add( seaweed.getMesh( seaweedPos ));
+                self.terrain.add( grass.getMesh( grassPos ));
 
             }
 
